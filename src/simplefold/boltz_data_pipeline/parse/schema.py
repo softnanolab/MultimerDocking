@@ -3,8 +3,8 @@
 # Copyright (c) 2025 Apple Inc. Licensed under MIT License.
 #
 
-# Started from https://github.com/jwohlwend/boltz, 
-# licensed under MIT License, Copyright (c) 2024 Jeremy Wohlwend, Gabriele Corso, Saro Passaro. 
+# Started from https://github.com/jwohlwend/boltz,
+# licensed under MIT License, Copyright (c) 2024 Jeremy Wohlwend, Gabriele Corso, Saro Passaro.
 
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -141,9 +141,11 @@ def compute_3d_conformer(mol: Mol, version: str = "v3") -> bool:
         conf_id = AllChem.EmbedMolecule(mol, options)
 
         if conf_id == -1:
-            print(f"WARNING: RDKit ETKDGv3 failed to generate a conformer for molecule "
-                  f"{Chem.MolToSmiles(AllChem.RemoveHs(mol))}, so the program will start with random coordinates. "
-                  f"Note that the performance of the model under this behaviour was not tested.")
+            print(
+                f"WARNING: RDKit ETKDGv3 failed to generate a conformer for molecule "
+                f"{Chem.MolToSmiles(AllChem.RemoveHs(mol))}, so the program will start with random coordinates. "
+                f"Note that the performance of the model under this behaviour was not tested."
+            )
             options.useRandomCoords = True
             conf_id = AllChem.EmbedMolecule(mol, options)
 
@@ -795,7 +797,7 @@ def parse_boltz_schema(  # noqa: C901, PLR0915, PLR0912
     for constraint in constraints:
         if "bond" in constraint:
             if "atom1" not in constraint["bond"] or "atom2" not in constraint["bond"]:
-                msg = f"Bond constraint was not properly specified"
+                msg = "Bond constraint was not properly specified"
                 raise ValueError(msg)
 
             c1, r1, a1 = tuple(constraint["bond"]["atom1"])
@@ -804,8 +806,11 @@ def parse_boltz_schema(  # noqa: C901, PLR0915, PLR0912
             c2, r2, a2 = atom_idx_map[(c2, r2 - 1, a2)]  # 1-indexed
             connections.append((c1, c2, r1, r2, a1, a2))
         elif "pocket" in constraint:
-            if "binder" not in constraint["pocket"] or "contacts" not in constraint["pocket"]:
-                msg = f"Pocket constraint was not properly specified"
+            if (
+                "binder" not in constraint["pocket"]
+                or "contacts" not in constraint["pocket"]
+            ):
+                msg = "Pocket constraint was not properly specified"
                 raise ValueError(msg)
 
             binder = constraint["pocket"]["binder"]
@@ -813,17 +818,23 @@ def parse_boltz_schema(  # noqa: C901, PLR0915, PLR0912
 
             if len(pocket_binders) > 0:
                 if pocket_binders[-1] != chain_to_idx[binder]:
-                    msg = f"Only one pocket binders is supported!"
+                    msg = "Only one pocket binders is supported!"
                     raise ValueError(msg)
                 else:
-                    pocket_residues[-1].extend([
-                        (chain_to_idx[chain_name], residue_index - 1) for chain_name, residue_index in contacts
-                    ])
+                    pocket_residues[-1].extend(
+                        [
+                            (chain_to_idx[chain_name], residue_index - 1)
+                            for chain_name, residue_index in contacts
+                        ]
+                    )
 
             else:
                 pocket_binders.append(chain_to_idx[binder])
                 pocket_residues.extend(
-                    [(chain_to_idx[chain_name],residue_index-1) for chain_name,residue_index in contacts]
+                    [
+                        (chain_to_idx[chain_name], residue_index - 1)
+                        for chain_name, residue_index in contacts
+                    ]
                 )
         else:
             msg = f"Invalid constraint: {constraint}"
@@ -864,10 +875,7 @@ def parse_boltz_schema(  # noqa: C901, PLR0915, PLR0912
         )
         chain_infos.append(chain_info)
 
-    options = InferenceOptions(
-        binders=pocket_binders,
-        pocket=pocket_residues
-    )
+    options = InferenceOptions(binders=pocket_binders, pocket=pocket_residues)
 
     record = Record(
         id=name,

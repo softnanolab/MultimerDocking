@@ -1,0 +1,36 @@
+_target_: custom.model.lightning_module.DockingModel
+
+# Architecture is loaded via defaults: /lightning_module/architecture: dockingdit_100M
+# You can override specific architecture parameters here if needed:
+# architecture:
+#   some_param: value
+
+esm_model:
+  _target_: custom.model.pLM.load_esm
+  model_key: esm2_150M
+  device: cuda
+
+esm_layers: all # "all" for all layers, or a list of integers for specific layers.
+esm_num_layers: 31
+esm_d_e: 640
+
+t_multiplicity: 2 # Number of dimer copies per GPU for different time steps.
+
+scale_true_coords: 16.0 # True coords are divided by this factor before being passed to the model.
+scale_ref_coords: 5.0 # Ref coords are divided by this factor before being passed to the model.
+
+interpolant:
+  _target_: custom.model.interpolants.LinearInterpolant
+
+optimizer:
+  _target_: torch.optim.AdamW
+  _partial_: true
+  lr: 1e-4
+  weight_decay: 0.0
+
+scheduler:
+  _target_: utils.lr_scheduler.LinearWarmup
+  _partial_: true
+  min_lr: 1e-6
+  max_lr: ${..optimizer.lr}
+  warmup_steps: 5000

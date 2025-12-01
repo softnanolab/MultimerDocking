@@ -16,7 +16,7 @@ class LinearWarmup(_LRScheduler):
         min_lr: float = 0.001,
         warmup_steps: int = 0,
         last_epoch: int = -1,
-        **kwargs
+        **kwargs,
     ):
         self.max_lr = max_lr  # max learning rate in the current cycle
         self.min_lr = min_lr  # min learning rate
@@ -40,7 +40,9 @@ class LinearWarmup(_LRScheduler):
             return self.base_lrs
         elif self.step_in_cycle < self.warmup_steps:
             return [
-                (self.max_lr - base_lr) * self.step_in_cycle / self.warmup_steps + base_lr for base_lr in self.base_lrs
+                (self.max_lr - base_lr) * self.step_in_cycle / self.warmup_steps
+                + base_lr
+                for base_lr in self.base_lrs
             ]
         else:
             return [self.max_lr for base_lr in self.base_lrs]

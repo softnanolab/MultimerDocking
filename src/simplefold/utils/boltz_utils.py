@@ -3,10 +3,10 @@
 # Copyright (c) 2025 Apple Inc. Licensed under MIT License.
 #
 
-# Started from https://github.com/jwohlwend/boltz, 
-# licensed under MIT License, Copyright (c) 2024 Jeremy Wohlwend, Gabriele Corso, Saro Passaro. 
+# Started from https://github.com/jwohlwend/boltz,
+# licensed under MIT License, Copyright (c) 2024 Jeremy Wohlwend, Gabriele Corso, Saro Passaro.
 
-# Started from code from https://github.com/lucidrains/alphafold3-pytorch, 
+# Started from code from https://github.com/lucidrains/alphafold3-pytorch,
 # licensed under MIT License, Copyright (c) 2024 Phil Wang
 
 import numpy as np
@@ -17,7 +17,6 @@ from dataclasses import replace
 
 import torch
 from torch.nn import Linear
-import torch.nn.functional as F
 from torch.types import Device
 
 from boltz_data_pipeline import const
@@ -108,6 +107,58 @@ def center_random_augmentation(
         return atom_coords, second_coords
 
     return atom_coords
+
+
+#### Added by EMB ####:
+def center_random_rotation(
+    atom_coords,
+    atom_mask,
+    rotation=True,
+    centering=True,
+    return_second_coords=False,
+    second_coords=None,
+):
+    """Center and randomly augment the input coordinates.
+
+    Parameters
+    ----------
+    -atom_coords : Tensor (B, N_atoms, 3)
+        The atom coordinates.
+    -atom_mask : Tensor (B, N_atoms)
+        The atom mask.
+    -rotation : bool, optional
+        Whether to randomly rotate the input, default True.
+    -centering : bool, optional
+        Whether to center the input before rotation, default True.
+
+    Returns
+    -------
+    -atom_coords : Tensor (B, N_atoms, 3)
+        The centered and rotated atom coords.
+    -second_coords : Tensor (B, N_atoms, 3), optional
+        The second set of atom coords with the same transformation applied, optional.
+    """
+    if centering:
+        atom_mean = torch.sum(
+            atom_coords * atom_mask[:, :, None], dim=1, keepdim=True
+        ) / torch.sum(atom_mask[:, :, None], dim=1, keepdim=True)
+        atom_coords = atom_coords - atom_mean
+
+        if second_coords is not None:
+            # apply same transformation also to this input
+            second_coords = second_coords - atom_mean
+
+    if rotation:
+        atom_coords, second_coords = randomly_rotate(
+            atom_coords, return_second_coords=True, second_coords=second_coords
+        )
+
+    if return_second_coords:
+        return atom_coords, second_coords
+
+    return atom_coords
+########
+
 
 
 # the following is copied from Torch3D, BSD License, Copyright (c) Meta Platforms, Inc. and affiliates.

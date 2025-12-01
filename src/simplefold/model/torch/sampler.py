@@ -9,10 +9,11 @@ from einops import repeat
 from utils.boltz_utils import center_random_augmentation
 
 
-class EMSampler():
+class EMSampler:
     """
     A Euler-Maruyama solver for SDEs.
     """
+
     def __init__(
         self,
         num_timesteps=500,
@@ -33,9 +34,7 @@ class EMSampler():
             t = t / torch.max(t)
             self.steps = t.clamp(min=self.t_start, max=1.0)
         else:
-            self.steps = torch.linspace(
-                self.t_start, 1.0, steps=self.num_timesteps + 1
-            )
+            self.steps = torch.linspace(self.t_start, 1.0, steps=self.num_timesteps + 1)
 
     def diffusion_coefficient(self, t, eps=0.01):
         # determine diffusion coefficient
@@ -49,14 +48,14 @@ class EMSampler():
         self,
         model_fn,
         flow,
-        y, 
-        t, 
-        t_next, 
-        batch, 
+        y,
+        t,
+        t_next,
+        batch,
     ):
         dt = t_next - t
         eps = torch.randn_like(y).to(y)
-
+        breakpoint()
         y = center_random_augmentation(
             y,
             batch["atom_pad_mask"],
@@ -69,7 +68,7 @@ class EMSampler():
             noised_pos=y,
             t=batched_t,
             feats=batch,
-        )['predict_velocity']
+        )["predict_velocity"]
         score = flow.compute_score_from_velocity(velocity, y, t)
 
         diff_coeff = self.diffusion_coefficient(t)
@@ -103,6 +102,4 @@ class EMSampler():
                 feats,
             )
 
-        return {
-            "denoised_coords": y_sampled
-        }
+        return {"denoised_coords": y_sampled}

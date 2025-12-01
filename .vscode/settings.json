@@ -1,0 +1,48 @@
+{
+  // Theme settings - different themes for light and dark mode
+  "workbench.colorTheme": "Default Dark+",
+  "workbench.preferredLightColorTheme": "GitHub Light",
+  "workbench.preferredDarkColorTheme": "Default Dark+",
+  
+  // Enable semantic highlighting for better code understanding
+  "editor.semanticHighlighting.enabled": true,
+  
+  // Python-specific settings for better syntax highlighting
+  "[python]": {
+    "editor.semanticHighlighting.enabled": true,
+    "editor.tokenColorCustomizations": {
+      "textMateRules": [
+        {
+          "scope": "variable.other.readwrite.python",
+          "settings": {
+            "foreground": "#9CDCFE"
+          }
+        },
+        {
+          "scope": "support.type.python",
+          "settings": {
+            "foreground": "#4EC9B0"
+          }
+        },
+        {
+          "scope": "entity.name.function.python",
+          "settings": {
+            "foreground": "#DCDCAA"
+          }
+        }
+      ]
+    }
+  },
+  
+  // Ensure proper language detection
+  "files.associations": {
+    "*.py": "python"
+  },
+  
+  // Enable bracket pair colorization
+  "editor.bracketPairColorization.enabled": true,
+  
+  // Improve syntax highlighting
+  "editor.suggest.snippetsPreventQuickSuggestions": false
+}
+

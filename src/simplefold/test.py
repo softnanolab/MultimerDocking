@@ -7,10 +7,7 @@ import hydra
 import torch
 from omegaconf import OmegaConf
 import lightning.pytorch as pl
-from lightning.pytorch import (
-    LightningDataModule, 
-    LightningModule
-)
+from lightning.pytorch import LightningDataModule, LightningModule
 
 from utils.utils import extras, create_folders, task_wrapper
 from utils.instantiators import instantiate_callbacks
@@ -43,9 +40,7 @@ def test(cfg):
         print("Loaded weights of EMA model successfully.")
     except:
         # if using checkpoint from your own training, load weights of LightningModule directly
-        model.load_state_dict(
-            checkpoint["state_dict"], strict=False
-        )
+        model.load_state_dict(checkpoint["state_dict"], strict=False)
         print("Loaded weights of LightningModule successfully.")
 
     # reset ESM model to avoid issues in loading FSDP checkpoint
@@ -82,7 +77,9 @@ def test(cfg):
     trainer.predict(model=model, datamodule=datamodule, ckpt_path=None)
 
 
-@hydra.main(version_base="1.3", config_path="../../configs", config_name="base_eval.yaml")
+@hydra.main(
+    version_base="1.3", config_path="../../configs", config_name="base_eval.yaml"
+)
 def submit_run(cfg):
     OmegaConf.resolve(cfg)
     extras(cfg)

@@ -21,10 +21,10 @@ except:
 
 class ProteinDataProcessor:
     def __init__(
-        self, 
-        device, 
-        scale=16.0, 
-        ref_scale=5.0, 
+        self,
+        device,
+        scale=16.0,
+        ref_scale=5.0,
         multiplicity=1,
         inference_multiplicity=1,
         backend="torch",
@@ -41,13 +41,15 @@ class ProteinDataProcessor:
         elif self.backend == "torch":
             self.center_random_fn = torch_center_random
         else:
-            raise ValueError(f"Unsupported backend: {self.backend}. Choose 'torch' or 'mlx'.")
+            raise ValueError(
+                f"Unsupported backend: {self.backend}. Choose 'torch' or 'mlx'."
+            )
 
     def process_esm(
-        self, 
-        batch, 
-        esm_model=None, 
-        esm_dict=None, 
+        self,
+        batch,
+        esm_model=None,
+        esm_dict=None,
         af2_to_esm=None,
         inference=False,
     ):
@@ -57,7 +59,9 @@ class ProteinDataProcessor:
         num_tokens = batch["cropped_num_tokens"]
 
         aatype, mask, residx, linker_mask, _ = batch_encode_sequences(
-            sequence, residue_index_offset=512, chain_linker="G" * 25,
+            sequence,
+            residue_index_offset=512,
+            chain_linker="G" * 25,
         )
 
         aatype, mask, residx, linker_mask = map(
@@ -69,7 +73,9 @@ class ProteinDataProcessor:
 
         esmaa = af2_idx_to_esm_idx(aatype, mask, af2_to_esm)
 
-        multiplicity = self.multiplicity if not inference else self.inference_multiplicity
+        multiplicity = (
+            self.multiplicity if not inference else self.inference_multiplicity
+        )
 
         esm_s_, _ = compute_language_model_representations(
             esmaa, esm_model, esm_dict, backend=self.backend
@@ -120,22 +126,22 @@ class ProteinDataProcessor:
                 batch[k] = mx.array(v)
         return batch
 
-    def preprocess_training(self, batch, esm_model=None, esm_dict=None, af2_to_esm=None):
+    def preprocess_training(
+        self, batch, esm_model=None, esm_dict=None, af2_to_esm=None
+    ):
         batch_size, max_ntokens = batch["mol_type"].shape[:2]
         max_natoms = batch["ref_element"].shape[1]
 
-        batch['atom_to_token_idx'] = torch.argmax(
-            batch['atom_to_token'], dim=-1)
+        batch["atom_to_token_idx"] = torch.argmax(batch["atom_to_token"], dim=-1)
 
-        y = batch['coords'].float().squeeze(1) / self.scale
-        batch['coords'] = y
+        y = batch["coords"].float().squeeze(1) / self.scale
+        batch["coords"] = y
 
-        ref_y = batch['ref_pos'].float() / self.ref_scale
-        batch['ref_pos'] = ref_y
+        ref_y = batch["ref_pos"].float() / self.ref_scale
+        batch["ref_pos"] = ref_y
 
-        mol_index = torch.arange(max_natoms).unsqueeze(0).expand(
-            batch_size, -1)
-        batch['mol_index'] = mol_index
+        mol_index = torch.arange(max_natoms).unsqueeze(0).expand(batch_size, -1)
+        batch["mol_index"] = mol_index
 
         batch = self.batch_to_device(batch, multiplicity=self.multiplicity)
 
@@ -144,32 +150,32 @@ class ProteinDataProcessor:
 
         # randomly augment the coordinates if repeating batch
         if self.multiplicity > 1:
-            batch['coords'] = self.center_random_fn(
-                batch['coords'], 
-                batch['atom_pad_mask'], 
+            batch["coords"] = self.center_random_fn(
+                batch["coords"],
+                batch["atom_pad_mask"],
                 centering=True,
                 augmentation=True,
             )
 
         return batch
 
-    def preprocess_inference(self, batch, esm_model=None, esm_dict=None, af2_to_esm=None):
+    def preprocess_inference(
+        self, batch, esm_model=None, esm_dict=None, af2_to_esm=None
+    ):
         batch_size, max_ntokens = batch["mol_type"].shape[:2]
         max_natoms = batch["ref_element"].shape[1]
 
-        batch['coords'] = batch['coords'].squeeze(1) / self.scale
-        batch['ref_pos'] = batch['ref_pos'].float() / self.ref_scale
+        batch["coords"] = batch["coords"].squeeze(1) / self.scale
+        batch["ref_pos"] = batch["ref_pos"].float() / self.ref_scale
 
-        batch['atom_to_token_idx'] = torch.argmax(
-            batch['atom_to_token'], dim=-1)
+        batch["atom_to_token_idx"] = torch.argmax(batch["atom_to_token"], dim=-1)
 
-        mol_index = torch.arange(max_natoms).unsqueeze(0).expand(
-            batch_size, -1)
-        batch['mol_index'] = mol_index
+        mol_index = torch.arange(max_natoms).unsqueeze(0).expand(batch_size, -1)
+        batch["mol_index"] = mol_index
 
         batch = self.batch_to_device(batch, multiplicity=self.inference_multiplicity)
 
-        if esm_model is not None and batch.get('esm_s', None) is None:
+        if esm_model is not None and batch.get("esm_s", None) is None:
             print("Processing ESM features for inference...")
             self.process_esm(batch, esm_model, esm_dict, af2_to_esm, inference=True)
 
@@ -179,16 +185,22 @@ class ProteinDataProcessor:
         return batch
 
     def postprocess(self, out_dict, batch):
-        out_dict['coords'] = self.center_random_fn(
-            batch['coords'], 
-            batch['atom_pad_mask'], 
-            centering=True,
-            augmentation=False,
-        ) * self.scale
-        out_dict['denoised_coords'] = self.center_random_fn(
-            out_dict['denoised_coords'], 
-            batch['atom_pad_mask'], 
-            centering=True,
-            augmentation=False,
-        ) * self.scale
+        out_dict["coords"] = (
+            self.center_random_fn(
+                batch["coords"],
+                batch["atom_pad_mask"],
+                centering=True,
+                augmentation=False,
+            )
+            * self.scale
+        )
+        out_dict["denoised_coords"] = (
+            self.center_random_fn(
+                out_dict["denoised_coords"],
+                batch["atom_pad_mask"],
+                centering=True,
+                augmentation=False,
+            )
+            * self.scale
+        )
         return out_dict

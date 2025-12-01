@@ -1,0 +1,18 @@
+_target_: lightning.pytorch.trainer.Trainer
+default_root_dir: ./artifacts
+accelerator: gpu
+devices: auto
+strategy: 
+  _target_: lightning.pytorch.strategies.DDPStrategy
+  find_unused_parameters: True
+  gradient_as_bucket_view: True
+num_nodes: 1
+precision: bf16-mixed
+max_steps: 100000
+logger:
+  - _target_: lightning.pytorch.loggers.WandbLogger
+    project: docking_model
+    # name: ${hydra:job.name}
+    save_dir: ${trainer.default_root_dir}/wandb
+    log_model: False
+

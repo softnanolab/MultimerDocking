@@ -3,6 +3,7 @@
 # Copyright (c) 2025 Apple Inc. Licensed under MIT License.
 #
 
+
 def right_pad_dims_to(x, t):
     padding_dims = x.ndim - t.ndim
     if padding_dims <= 0:
@@ -53,12 +54,12 @@ class BasePath:
         return t, xt, ut
 
     def compute_drift(self, x, t):
-        """We always output sde according to score parametrization; """
+        """We always output sde according to score parametrization;"""
         t = right_pad_dims_to(x, t)
         alpha_ratio = self.compute_d_alpha_alpha_ratio_t(t)
         sigma_t, d_sigma_t = self.compute_sigma_t(t)
         drift_mean = alpha_ratio * x
-        drift_var = alpha_ratio * (sigma_t ** 2) - sigma_t * d_sigma_t
+        drift_var = alpha_ratio * (sigma_t**2) - sigma_t * d_sigma_t
         return -drift_mean, drift_var
 
     def compute_score_from_velocity(self, v_t, y_t, t):

@@ -1,0 +1,23 @@
+dataloader:
+  _target_: custom.data_processing.data.build_AFDDI_dataloader
+  Dataset: 
+    _target_: custom.data_processing.data.AFDDI_Dataset
+    manifest_path: ${paths.AFDDI_manifest}
+    Filter:
+      _target_: custom.data_processing.data.Filter
+      filters:
+        - _target_: custom.data_processing.data.max_combined_sequence_length
+          _partial_: True
+          N_max: 1024
+        - _target_: custom.data_processing.data.min_individual_sequence_length
+          _partial_: True
+          N_min: 10
+  batch_size: 1 # per GPU batch size, i.e. number of dimers per GPU
+  shuffle: True
+  num_workers: 4
+  pin_memory: True
+  persistent_workers: True
+  drop_last: True
+  collate_fn:
+    _target_: custom.data_processing.data.AFDDI_collate_fn
+    _partial_: True

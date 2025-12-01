@@ -60,7 +60,6 @@ class ESM1LayerNorm(nn.Module):
 
 
 class TransformerLayer(nn.Module):
-
     def __init__(
         self,
         embed_dim,

@@ -91,7 +91,7 @@ def check_fasta_inputs(data: Path) -> list[Path]:
 
     # Check if data is a directory
     if data.is_dir():
-        data: list[Path] = list(data.glob("*"))
+        data: list[Path] = [p for p in data.glob("*") if not p.name.startswith(".")] # skip hidden files starting with .
 
         # Filter out non .fasta or .yaml files
         filtered_data = []

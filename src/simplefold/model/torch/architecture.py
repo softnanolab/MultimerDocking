@@ -117,13 +117,16 @@ class FoldingDiT(nn.Module):
         )
 
         self.final_layer = FinalLayer(
-            self.atom_hidden_size_dec, 
-            output_channels, 
-            c_dim=hidden_size
+            self.atom_hidden_size_dec, output_channels, c_dim=hidden_size
         )
 
     def create_local_attn_bias(
-        self, n: int, n_queries: int, n_keys: int, inf: float = 1e10, device: torch.device = None
+        self,
+        n: int,
+        n_queries: int,
+        n_keys: int,
+        inf: float = 1e10,
+        device: torch.device = None,
     ) -> torch.Tensor:
         """Create local attention bias based on query window n_queries and kv window n_keys.
 
@@ -149,12 +152,7 @@ class FoldingDiT(nn.Module):
         return attn_bias.to(device=device)[:n, :n]
 
     def create_atom_attn_mask(
-        self, 
-        feats, 
-        natoms, 
-        atom_n_queries=None, 
-        atom_n_keys=None,
-        inf: float = 1e10
+        self, feats, natoms, atom_n_queries=None, atom_n_keys=None, inf: float = 1e10
     ) -> torch.Tensor:
         if atom_n_queries is not None and atom_n_keys is not None:
             atom_attn_mask = self.create_local_attn_bias(
@@ -172,13 +170,13 @@ class FoldingDiT(nn.Module):
     def forward(self, noised_pos, t, feats, self_cond=None):
         B, N, _ = feats["ref_pos"].shape
         M = feats["mol_type"].shape[1]
-        atom_to_token = feats["atom_to_token"].float() # [B, N, M]
+        atom_to_token = feats["atom_to_token"].float()  # [B, N, M]
         atom_to_token_idx = feats["atom_to_token_idx"]
         ref_space_uid = feats["ref_space_uid"]
 
         # create atom attention masks
         atom_attn_mask_enc = self.create_atom_attn_mask(
-            feats, 
+            feats,
             natoms=N,
             atom_n_queries=self.atom_n_queries_enc,
             atom_n_keys=self.atom_n_keys_enc,
@@ -198,61 +196,60 @@ class FoldingDiT(nn.Module):
 
         # create atom features
         mol_type = feats["mol_type"]
-        mol_type = F.one_hot(mol_type, num_classes=4).float()       # [B, M, 4]
-        res_type = feats["res_type"].float()                        # [B, M, 33]
-        pocket_feature = feats["pocket_feature"].float()            # [B, M, 4]
-        res_feat = torch.cat(
-            [mol_type, res_type, pocket_feature], 
-        dim=-1)                                                     # [B, M, 41]
-        atom_feat_from_res = torch.bmm(atom_to_token, res_feat)     # [B, N, 41]
+        mol_type = F.one_hot(mol_type, num_classes=4).float()  # [B, M, 4]
+        res_type = feats["res_type"].float()  # [B, M, 33]
+        pocket_feature = feats["pocket_feature"].float()  # [B, M, 4]
+        res_feat = torch.cat([mol_type, res_type, pocket_feature], dim=-1)  # [B, M, 41]
+        atom_feat_from_res = torch.bmm(atom_to_token, res_feat)  # [B, N, 41]
         atom_res_pos = self.aminoacid_pos_embedder(
             pos=atom_to_token_idx.unsqueeze(-1).float()
         )
+        breakpoint()
         ref_pos_emb = self.pos_embedder(pos=feats["ref_pos"])
         atom_feat = torch.cat(
             [
-                ref_pos_emb,                                        # (B, N, PD1)
-                atom_feat_from_res,                                 # (B, N, 41)
-                atom_res_pos,                                       # (B, N, PD2)
-                feats["ref_charge"].unsqueeze(-1),                  # (B, N, 1)
-                feats["atom_pad_mask"].unsqueeze(-1),               # (B, N, 1)
-                feats["ref_element"],                               # (B, N, 128)
-                feats["ref_atom_name_chars"].reshape(B, N, 4 * 64), # (B, N, 256)
+                ref_pos_emb,  # (B, N, PD1)
+                atom_feat_from_res,  # (B, N, 41)
+                atom_res_pos,  # (B, N, PD2)
+                feats["ref_charge"].unsqueeze(-1),  # (B, N, 1)
+                feats["atom_pad_mask"].unsqueeze(-1),  # (B, N, 1)
+                feats["ref_element"],  # (B, N, 128)
+                feats["ref_atom_name_chars"].reshape(B, N, 4 * 64),  # (B, N, 256)
             ],
             dim=-1,
-        )                                                           # (B, N, PD1+PD2+427)
-        atom_feat = self.atom_feat_proj(atom_feat)                  # (B, N, D)
+        )  # (B, N, PD1+PD2+427)
+        atom_feat = self.atom_feat_proj(atom_feat)  # (B, N, D)
 
-        atom_coord = self.pos_embedder(pos=noised_pos)              # (B, N, PD1)
-        atom_coord = self.atom_pos_proj(atom_coord)                 # (B, N, D)
+        atom_coord = self.pos_embedder(pos=noised_pos)  # (B, N, PD1)
+        atom_coord = self.atom_pos_proj(atom_coord)  # (B, N, D)
 
         atom_in = torch.cat([atom_feat, atom_coord], dim=-1)
-        atom_in = self.atom_in_proj(atom_in)                        # (B, N, D)
+        atom_in = self.atom_in_proj(atom_in)  # (B, N, D)
 
         # position embeddings for Axial RoPE
         atom_pe_pos = torch.cat(
             [
-                ref_space_uid.unsqueeze(-1).float(),                 # (B, N, 1)
-                feats["ref_pos"],                                    # (B, N, 3)
+                ref_space_uid.unsqueeze(-1).float(),  # (B, N, 1)
+                feats["ref_pos"],  # (B, N, 3)
             ],
             dim=-1,
-        )                                                            # (B, N, 4)
+        )  # (B, N, 4)
         token_pe_pos = torch.cat(
             [
-                feats["residue_index"].unsqueeze(-1).float(),        # (B, M, 1)
-                feats["entity_id"].unsqueeze(-1).float(),            # (B, M, 1)
-                feats["asym_id"].unsqueeze(-1).float(),              # (B, M, 1)
-                feats["sym_id"].unsqueeze(-1).float(),               # (B, M, 1)
+                feats["residue_index"].unsqueeze(-1).float(),  # (B, M, 1)
+                feats["entity_id"].unsqueeze(-1).float(),  # (B, M, 1)
+                feats["asym_id"].unsqueeze(-1).float(),  # (B, M, 1)
+                feats["sym_id"].unsqueeze(-1).float(),  # (B, M, 1)
             ],
             dim=-1,
-        )                                                            # (B, M, 4)
+        )  # (B, M, 4) 
 
         # atom encoder
         atom_c_emb_enc = self.atom_enc_cond_proj(c_emb)
         atom_latent = self.context2atom_proj(atom_in)
         atom_latent = self.atom_encoder_transformer(
-            latents=atom_latent, 
-            c=atom_c_emb_enc, 
+            latents=atom_latent,
+            c=atom_c_emb_enc,
             attention_mask=atom_attn_mask_enc,
             pos=atom_pe_pos,
         )
@@ -265,17 +262,17 @@ class FoldingDiT(nn.Module):
         latent = torch.bmm(atom_to_token_mean.transpose(1, 2), atom_latent)
         assert latent.shape[1] == M
 
-        esm_s = (self.esm_s_combine.softmax(0).unsqueeze(0) @ feats['esm_s']).squeeze(2)
+        esm_s = (self.esm_s_combine.softmax(0).unsqueeze(0) @ feats["esm_s"]).squeeze(2)
         force_drop_ids = feats.get("force_drop_ids", None)
         esm_emb = self.esm_s_proj(esm_s, self.training, force_drop_ids)
         assert esm_emb.shape[1] == latent.shape[1]
-
+        
         latent = self.esm_cat_proj(torch.cat([latent, esm_emb], dim=-1))
-
+        
         # residue trunk
         latent = self.trunk(
-            latents=latent, 
-            c=c_emb, 
+            latents=latent,
+            c=c_emb,
             attention_mask=None,
             pos=token_pe_pos,
         )
@@ -291,7 +288,7 @@ class FoldingDiT(nn.Module):
         # atom decoder
         atom_c_emb_dec = self.atom_dec_cond_proj(c_emb)
         output = self.atom_decoder_transformer(
-            latents=output, 
+            latents=output,
             c=atom_c_emb_dec,
             attention_mask=atom_attn_mask_dec,
             pos=atom_pe_pos,

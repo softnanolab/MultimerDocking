@@ -3,8 +3,8 @@
 # Copyright (c) 2025 Apple Inc. Licensed under MIT License.
 #
 
-# Started from https://github.com/jwohlwend/boltz, 
-# licensed under MIT License, Copyright (c) 2024 Jeremy Wohlwend, Gabriele Corso, Saro Passaro. 
+# Started from https://github.com/jwohlwend/boltz,
+# licensed under MIT License, Copyright (c) 2024 Jeremy Wohlwend, Gabriele Corso, Saro Passaro.
 
 import argparse
 import json
@@ -25,10 +25,10 @@ from p_tqdm import p_umap
 from boltz_data_pipeline.filter.static.filter import StaticFilter
 from boltz_data_pipeline.filter.static.ligand import ExcludedLigands
 from boltz_data_pipeline.filter.static.polymer import (
-    ClashingChainsFilter, 
-    ConsecutiveCA, 
-    MinimumLengthFilter, 
-    UnknownFilter
+    ClashingChainsFilter,
+    ConsecutiveCA,
+    MinimumLengthFilter,
+    UnknownFilter,
 )
 from boltz_data_pipeline.types import ChainInfo, Record, Target
 from utils.mmcif_utils import parse_mmcif

@@ -1,0 +1,238 @@
+data:
+  _target_: datasets.train_datamodule.SimpleFoldTrainingDataModule
+  datasets:
+  - _target_: datasets.train_datamodule.DatasetConfig
+    data_name: small_test
+    tokenized_dir: /rds/general/user/emb25/home/Simplepaint_project/data_small_test/af_swiss_prot_small_processed
+    target_dir: /rds/general/user/emb25/home/Simplepaint_project/data_small_test/af_swiss_prot_small_processed
+    manifest_path: /rds/general/user/emb25/home/Simplepaint_project/data_small_test/af_swiss_prot_small_processed/manifest.json
+    cropper:
+      _target_: boltz_data_pipeline.crop.boltz.BoltzCropper
+      min_neighborhood: 0
+      max_neighborhood: 40
+    filters:
+    - _target_: boltz_data_pipeline.filter.dynamic.resolution.ResolutionFilter
+      resolution: 5.0
+    - _target_: boltz_data_pipeline.filter.dynamic.date.DateFilter
+      date: '2025-05-01'
+      ref: released
+  filters:
+  - _target_: boltz_data_pipeline.filter.dynamic.size.SizeFilter
+    min_chains: 1
+    max_chains: 300
+  tokenizer:
+    _target_: boltz_data_pipeline.tokenize.boltz_protein.BoltzTokenizer
+  featurizer:
+    _target_: boltz_data_pipeline.feature.featurizer.BoltzFeaturizer
+  symmetries: null
+  max_tokens: 256
+  max_atoms: 2304
+  pad_to_max_tokens: false
+  pad_to_max_atoms: false
+  batch_size: 1
+  num_workers: 4
+  pin_memory: true
+  return_train_symmetries: false
+  min_dist: 2.0
+  max_dist: 22.0
+  num_bins: 64
+  atoms_per_window_queries: 32
+  rotation_augment_ref_pos: false
+  rotation_augment_coords: true
+model:
+  architecture:
+    _target_: model.torch.architecture.FoldingDiT
+    hidden_size: 768
+    num_heads: 12
+    atom_num_heads: 4
+    output_channels: 3
+    use_atom_mask: false
+    use_length_condition: true
+    esm_dropout_prob: 0.0
+    esm_model: ${model.esm_model}
+    time_embedder:
+      _target_: model.torch.layers.TimestepEmbedder
+      hidden_size: 768
+    aminoacid_pos_embedder:
+      _target_: model.torch.pos_embed.AbsolutePositionEncoding
+      in_dim: 1
+      embed_dim: 768
+      include_input: true
+    pos_embedder:
+      _target_: model.torch.pos_embed.FourierPositionEncoding
+      in_dim: 3
+      include_input: true
+      min_freq_log2: 0
+      max_freq_log2: 12
+      num_freqs: 128
+      log_sampling: true
+    trunk:
+      _target_: model.torch.blocks.HomogenTrunk
+      depth: 8
+      block:
+        _target_: model.torch.blocks.DiTBlock
+        _partial_: true
+        hidden_size: 768
+        mlp_ratio: 4.0
+        use_swiglu: true
+        self_attention_layer:
+          _target_: model.torch.layers.EfficientSelfAttentionLayer
+          _partial_: true
+          hidden_size: 768
+          num_heads: 12
+          qk_norm: true
+          pos_embedder:
+            _target_: model.torch.pos_embed.AxialRotaryPositionEncoding
+            in_dim: 4
+            embed_dim: 768
+            num_heads: 12
+            base: 100.0
+    atom_hidden_size_enc: 256
+    atom_n_queries_enc: 32
+    atom_n_keys_enc: 128
+    atom_encoder_transformer:
+      _target_: model.torch.blocks.HomogenTrunk
+      depth: 1
+      block:
+        _target_: model.torch.blocks.DiTBlock
+        _partial_: true
+        hidden_size: 256
+        mlp_ratio: 4.0
+        use_swiglu: true
+        self_attention_layer:
+          _target_: model.torch.layers.EfficientSelfAttentionLayer
+          _partial_: true
+          hidden_size: 256
+          num_heads: 4
+          qk_norm: true
+          pos_embedder:
+            _target_: model.torch.pos_embed.AxialRotaryPositionEncoding
+            in_dim: 4
+            embed_dim: 256
+            num_heads: 4
+            base: 100.0
+    atom_hidden_size_dec: 256
+    atom_n_queries_dec: 32
+    atom_n_keys_dec: 128
+    atom_decoder_transformer:
+      _target_: model.torch.blocks.HomogenTrunk
+      depth: 1
+      block:
+        _target_: model.torch.blocks.DiTBlock
+        _partial_: true
+        hidden_size: 256
+        mlp_ratio: 4.0
+        use_swiglu: true
+        self_attention_layer:
+          _target_: model.torch.layers.EfficientSelfAttentionLayer
+          _partial_: true
+          hidden_size: 256
+          num_heads: 4
+          qk_norm: true
+          pos_embedder:
+            _target_: model.torch.pos_embed.AxialRotaryPositionEncoding
+            in_dim: 4
+            embed_dim: 256
+            num_heads: 4
+            base: 100.0
+  sampler:
+    _target_: model.torch.sampler.EMSampler
+    num_timesteps: 500
+    t_start: 0.0001
+    tau: 0.3
+    log_timesteps: true
+    w_cutoff: 0.99
+  processor:
+    _target_: processor.protein_processor.ProteinDataProcessor
+    _partial_: true
+    scale: 16.0
+    ref_scale: 5.0
+    multiplicity: 2
+  _target_: model.simplefold.SimpleFold
+  ema_decay: 0.999
+  clip_grad_norm_val: 2.0
+  use_rigid_align: true
+  smooth_lddt_loss_weight: 1.0
+  lddt_cutoff: 15.0
+  esm_model: esm2_150M
+  lddt_weight_schedule: false
+  sample_dir: ${paths.sample_dir}
+  path:
+    _target_: model.flow.LinearPath
+  loss:
+    _target_: torch.nn.MSELoss
+    reduction: none
+    reduce: false
+  optimizer:
+    _target_: torch.optim.AdamW
+    _partial_: true
+    lr: 0.0001
+    weight_decay: 0.0
+    max_steps: ???
+  scheduler:
+    _target_: utils.lr_scheduler.LinearWarmup
+    _partial_: true
+    min_lr: 1.0e-06
+    max_lr: ${model.optimizer.lr}
+    warmup_steps: 5000
+callbacks:
+  model_checkpoint:
+    _target_: lightning.pytorch.callbacks.ModelCheckpoint
+    dirpath: artifacts/checkpoints
+    filename: model-best-step{step:08d}-loss{loss/mse_epoch:.6f}
+    monitor: trainer/global_step
+    verbose: true
+    save_last: true
+    save_top_k: 50
+    mode: max
+    auto_insert_metric_name: false
+    save_weights_only: false
+    save_on_train_epoch_end: false
+    every_n_train_steps: ${trainer.val_check_interval}
+  model_summary:
+    _target_: lightning.pytorch.callbacks.RichModelSummary
+    max_depth: -1
+logger:
+  tensorboard:
+    _target_: lightning.pytorch.loggers.tensorboard.TensorBoardLogger
+    save_dir: ${paths.output_dir}/tensorboard/
+    name: null
+    log_graph: false
+    default_hp_metric: true
+    prefix: ''
+trainer:
+  _target_: lightning.pytorch.trainer.Trainer
+  default_root_dir: ${paths.output_dir}
+  deterministic: false
+  accelerator: gpu
+  devices: auto
+  strategy:
+    _target_: lightning.pytorch.strategies.DDPStrategy
+    find_unused_parameters: true
+    gradient_as_bucket_view: true
+    timeout:
+      _target_: datetime.timedelta
+      seconds: 1800
+  num_nodes: 1
+  min_epochs: 1
+  max_steps: 300000
+  precision: bf16-mixed
+  val_check_interval: 10000
+  check_val_every_n_epoch: null
+  num_sanity_val_steps: 0
+  limit_val_batches: 0.0
+  accumulate_grad_batches: 1
+paths:
+  root_dir: ./
+  tmp_dir: ${paths.root_dir}tmp/
+  data_dir: ${paths.root_dir}data/
+  log_dir: ${paths.root_dir}logs/
+  output_dir: ${paths.root_dir}artifacts/
+  sample_dir: ${.output_dir}/samples/
+  work_dir: ${hydra:runtime.cwd}
+extras:
+  ignore_warnings: false
+  print_config: true
+train: true
+test: false
+seed: 12345

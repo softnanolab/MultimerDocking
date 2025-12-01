@@ -24,9 +24,7 @@ dtype_lookup = {
 
 
 def instantiate_trainer(trainer_cfg: DictConfig, callbacks, logger, plugins):
-
     if "mixed_precision" in trainer_cfg.strategy.keys():
-
         # mp_config = trainer_cfg.st
         mp = hydra.utils.instantiate(trainer_cfg.strategy.mixed_precision)
         mp = mp(

@@ -22,6 +22,7 @@ class DiTBlock(nn.Module):
         use_swiglu=True,
     ):
         super().__init__()
+        self.hidden_size = hidden_size
         self.norm1 = nn.LayerNorm(hidden_size, elementwise_affine=False, eps=1e-6)
         self.attn = self_attention_layer()
         self.norm2 = nn.LayerNorm(hidden_size, elementwise_affine=False, eps=1e-6)

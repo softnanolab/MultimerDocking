@@ -178,7 +178,6 @@ class MultiheadAttention(nn.Module):
             assert key_padding_mask.shape[1] == src_len
 
         if self.rot_emb:
-
             q, k = self.rot_emb(q, k)
 
         attn_weights = mx.matmul(q, mx.swapaxes(k, axis1=1, axis2=2))

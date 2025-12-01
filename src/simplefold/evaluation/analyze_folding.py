@@ -13,7 +13,7 @@ import numpy as np
 import pandas as pd
 
 
-# to download the docker image, refer to: 
+# to download the docker image, refer to:
 # https://git.scicore.unibas.ch/schwede/openstructure#docker
 
 OST_COMPARE_STRUCTURE = r"""
@@ -47,9 +47,7 @@ def evaluate_structure(
     out_path = Path(outdir) / f"{name}.json"
 
     if out_path.exists():
-        print(
-            f"Skipping recomputation of {name} as protein json file already exists"
-        )
+        print(f"Skipping recomputation of {name} as protein json file already exists")
     else:
         subprocess.run(
             OST_COMPARE_STRUCTURE.format(
@@ -125,10 +123,7 @@ def compute_metrics(preds, evals, name):
             continue
         else:
             l = 1
-        results[metric_name] = {
-            "res": oracle[metric_name],
-            "len": l
-        }
+        results[metric_name] = {"res": oracle[metric_name], "len": l}
 
     return results
 
@@ -157,7 +152,11 @@ def aggregate_eval(args):
     simplefold_datas = args.data
     simplefold_evals = args.outdir
     # Load preds and make sure we have predictions for all models
-    simplefold_datas_names = {x.name.split('.')[0]: x for x in Path(simplefold_datas).iterdir() if not x.name.startswith(".")}
+    simplefold_datas_names = {
+        x.name.split(".")[0]: x
+        for x in Path(simplefold_datas).iterdir()
+        if not x.name.startswith(".")
+    }
     print("Number of data", len(simplefold_datas_names))
 
     common = set(simplefold_datas_names.keys())
@@ -177,12 +176,14 @@ def aggregate_eval(args):
             continue
 
         for metric_name in simplefold_results:
-            results.append({
-                "tool": "SimpleFold",
-                "target": name,
-                "metric": metric_name,
-                "value": simplefold_results[metric_name]["res"],
-            })
+            results.append(
+                {
+                    "tool": "SimpleFold",
+                    "target": name,
+                    "metric": metric_name,
+                    "value": simplefold_results[metric_name]["res"],
+                }
+            )
 
     # Write the results to a file, ensure we only keep the target & metrics where we have all tools
     df = pd.DataFrame(results)
@@ -196,8 +197,8 @@ def aggregate_eval(args):
     boot_stats.columns = ["mean", "lower", "upper", "median"]
 
     # Unstack to get a DataFrame suitable for plotting
-    plot_data = boot_stats['mean'].unstack('tool')
-    plot_data_median = boot_stats['median'].unstack('tool')
+    plot_data = boot_stats["mean"].unstack("tool")
+    plot_data_median = boot_stats["median"].unstack("tool")
 
     # plot_data = plot_data.rename(index=renaming)
     print("---------------------- Mean Results ----------------------")
@@ -207,7 +208,7 @@ def aggregate_eval(args):
     print(f"BB-LDDT : {plot_data.loc['bb_lddt', 'SimpleFold']:0.4f}")
     print(f"RMSD    : {plot_data.loc['rmsd', 'SimpleFold']:0.4f}")
 
-    plot_data_median = boot_stats['median'].unstack('tool')
+    plot_data_median = boot_stats["median"].unstack("tool")
     # plot_data_median = plot_data_median.rename(index=renaming)
     print("---------------------- Median Results ----------------------")
     print(f"TM score: {plot_data_median.loc['tm_score', 'SimpleFold']:0.4f}")
@@ -219,9 +220,18 @@ def aggregate_eval(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--data_dir", type=str, required=True, help="Path to the PDB mmcif directory")
-    parser.add_argument("--sample_dir", type=str, required=True, help="Path to the sampled mmcif directory")
-    parser.add_argument("--out_dir", type=str, required=True, help="Path to the output directory")
+    parser.add_argument(
+        "--data_dir", type=str, required=True, help="Path to the PDB mmcif directory"
+    )
+    parser.add_argument(
+        "--sample_dir",
+        type=str,
+        required=True,
+        help="Path to the sampled mmcif directory",
+    )
+    parser.add_argument(
+        "--out_dir", type=str, required=True, help="Path to the output directory"
+    )
     parser.add_argument("--max-workers", type=int, default=32)
     args = parser.parse_args()
 

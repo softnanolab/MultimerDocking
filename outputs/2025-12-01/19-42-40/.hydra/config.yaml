@@ -1,0 +1,150 @@
+paths:
+  AFDDI_manifest: /rds/general/user/emb25/home/dock_proj/data_pipeline_testing/test_data/processed/manifest.jsonl
+lightning_module:
+  _target_: custom.model.lightning_module.DockingModel
+  esm_model:
+    _target_: custom.model.pLM.load_esm
+    model_key: esm2_150M
+    device: cuda
+  esm_layers: all
+  esm_num_layers: 31
+  esm_d_e: 640
+  t_multiplicity: 2
+  scale_true_coords: 16.0
+  scale_ref_coords: 5.0
+  interpolant:
+    _target_: custom.model.interpolants.LinearInterpolant
+  optimizer:
+    _target_: torch.optim.AdamW
+    _partial_: true
+    lr: 0.0001
+    weight_decay: 0.0
+  scheduler:
+    _target_: utils.lr_scheduler.LinearWarmup
+    _partial_: true
+    min_lr: 1.0e-06
+    max_lr: ${..optimizer.lr}
+    warmup_steps: 5000
+  architecture:
+    _target_: custom.model.architecture.DockingDiT
+    d_a: 768
+    d_e: ${..esm_d_e}
+    pLM_num_layers: ${..esm_num_layers}
+    pLM_dropout_prob: 0.0
+    use_length_condition: true
+    encoder:
+      _target_: custom.model.architecture.Encoder
+      d_a: 768
+      atom_n_queries_enc: 32
+      atom_n_keys_enc: 128
+      atom_encoder_transformer:
+        _target_: model.torch.blocks.HomogenTrunk
+        depth: 1
+        block:
+          _target_: model.torch.blocks.DiTBlock
+          _partial_: true
+          hidden_size: 256
+          mlp_ratio: 4.0
+          use_swiglu: true
+          self_attention_layer:
+            _target_: model.torch.layers.EfficientSelfAttentionLayer
+            _partial_: true
+            hidden_size: 256
+            num_heads: 4
+            qk_norm: true
+            pos_embedder:
+              _target_: model.torch.pos_embed.AxialRotaryPositionEncoding
+              in_dim: 4
+              embed_dim: 256
+              num_heads: 4
+              base: 100.0
+    decoder:
+      _target_: custom.model.architecture.Decoder
+      d_a: 768
+      D: 256
+      atom_n_queries_dec: 32
+      atom_n_keys_dec: 128
+      atom_decoder_transformer:
+        _target_: model.torch.blocks.HomogenTrunk
+        depth: 1
+        block:
+          _target_: model.torch.blocks.DiTBlock
+          _partial_: true
+          hidden_size: 256
+          mlp_ratio: 4.0
+          use_swiglu: true
+          self_attention_layer:
+            _target_: model.torch.layers.EfficientSelfAttentionLayer
+            _partial_: true
+            hidden_size: 256
+            num_heads: 4
+            qk_norm: true
+            pos_embedder:
+              _target_: model.torch.pos_embed.AxialRotaryPositionEncoding
+              in_dim: 4
+              embed_dim: 256
+              num_heads: 4
+              base: 100.0
+    mtm_res_trunk:
+      _target_: model.torch.blocks.HomogenTrunk
+      depth: 8
+      block:
+        _target_: model.torch.blocks.DiTBlock
+        _partial_: true
+        hidden_size: 768
+        mlp_ratio: 4.0
+        use_swiglu: true
+        self_attention_layer:
+          _target_: model.torch.layers.EfficientSelfAttentionLayer
+          _partial_: true
+          hidden_size: 768
+          num_heads: 12
+          qk_norm: true
+          pos_embedder:
+            _target_: model.torch.pos_embed.AxialRotaryPositionEncoding
+            in_dim: 1
+            embed_dim: 768
+            num_heads: 12
+            base: 100.0
+data:
+  dataloader:
+    _target_: custom.data_processing.data.build_AFDDI_dataloader
+    Dataset:
+      _target_: custom.data_processing.data.AFDDI_Dataset
+      manifest_path: ${paths.AFDDI_manifest}
+      Filter:
+        _target_: custom.data_processing.data.Filter
+        filters:
+        - _target_: custom.data_processing.data.max_combined_sequence_length
+          _partial_: true
+          N_max: 1024
+        - _target_: custom.data_processing.data.min_individual_sequence_length
+          _partial_: true
+          N_min: 10
+    batch_size: 1
+    shuffle: true
+    num_workers: 4
+    pin_memory: true
+    persistent_workers: true
+    drop_last: true
+    collate_fn:
+      _target_: custom.data_processing.data.AFDDI_collate_fn
+      _partial_: true
+trainer:
+  _target_: lightning.pytorch.trainer.Trainer
+  default_root_dir: ./artifacts
+  accelerator: gpu
+  devices: auto
+  strategy:
+    _target_: lightning.pytorch.strategies.DDPStrategy
+    find_unused_parameters: true
+    gradient_as_bucket_view: true
+  num_nodes: 1
+  precision: bf16-mixed
+  max_steps: 100000
+  logger:
+  - _target_: lightning.pytorch.loggers.WandbLogger
+    project: docking_model
+    save_dir: ${trainer.default_root_dir}/wandb
+    log_model: false
+seed: 57

@@ -5,7 +5,6 @@
 
 import math
 from einops.array_api import rearrange
-from operator import __add__
 import mlx.core as mx
 import mlx.nn as nn
 
@@ -213,13 +212,14 @@ class ConditionEmbedder(nn.Module):
     """
     Embeds class labels into vector representations. Also handles label dropout for classifier-free guidance.
     """
+
     def __init__(self, input_dim, hidden_size, dropout_prob):
         super().__init__()
         self.proj = nn.Sequential(
-                nn.Linear(input_dim, hidden_size),
-                nn.LayerNorm(hidden_size),
-                nn.SiLU(),
-            )
+            nn.Linear(input_dim, hidden_size),
+            nn.LayerNorm(hidden_size),
+            nn.SiLU(),
+        )
         self.dropout_prob = dropout_prob
         self.null_token = mx.zeros(input_dim)
 

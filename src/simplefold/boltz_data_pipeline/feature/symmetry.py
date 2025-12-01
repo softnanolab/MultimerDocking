@@ -3,8 +3,8 @@
 # Copyright (c) 2025 Apple Inc. Licensed under MIT License.
 #
 
-# Started from https://github.com/jwohlwend/boltz, 
-# licensed under MIT License, Copyright (c) 2024 Jeremy Wohlwend, Gabriele Corso, Saro Passaro. 
+# Started from https://github.com/jwohlwend/boltz,
+# licensed under MIT License, Copyright (c) 2024 Jeremy Wohlwend, Gabriele Corso, Saro Passaro.
 
 import itertools
 import pickle
@@ -559,7 +559,7 @@ def get_ligand_symmetries(cropped, symmetries):
     # for each molecule, get the symmetries
     molecule_symmetries = []
     for mol_name, start_mol, mol_id, mol_atom_names in index_mols:
-        if not mol_name in symmetries:
+        if mol_name not in symmetries:
             continue
         else:
             swaps = []

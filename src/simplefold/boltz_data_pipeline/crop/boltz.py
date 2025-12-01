@@ -3,8 +3,8 @@
 # Copyright (c) 2025 Apple Inc. Licensed under MIT License.
 #
 
-# Started from https://github.com/jwohlwend/boltz, 
-# licensed under MIT License, Copyright (c) 2024 Jeremy Wohlwend, Gabriele Corso, Saro Passaro. 
+# Started from https://github.com/jwohlwend/boltz,
+# licensed under MIT License, Copyright (c) 2024 Jeremy Wohlwend, Gabriele Corso, Saro Passaro.
 
 from dataclasses import replace
 from typing import Optional
@@ -135,8 +135,9 @@ def pick_interface_token(
 class BoltzCropper(Cropper):
     """Interpolate between contiguous and spatial crops."""
 
-    def __init__(self, 
-        min_neighborhood: int = 0, 
+    def __init__(
+        self,
+        min_neighborhood: int = 0,
         max_neighborhood: int = 40,
     ) -> None:
         """Initialize the cropper.

@@ -3,18 +3,15 @@
 # Copyright (c) 2025 Apple Inc. Licensed under MIT License.
 #
 
-import os
-import pickle
-import blobfile as bf
 from pathlib import Path
 from typing import Optional
 from dataclasses import asdict
 
-import torch.distributed as dist
 from lightning import LightningDataModule
 from torch.utils.data import DataLoader
 import torch.multiprocessing
-torch.multiprocessing.set_sharing_strategy('file_system')
+
+torch.multiprocessing.set_sharing_strategy("file_system")
 
 from boltz_data_pipeline.types import Manifest
 from boltz_data_pipeline.feature.featurizer import BoltzFeaturizer
@@ -115,8 +112,10 @@ class SimpleFoldPredictionDataset(torch.utils.data.Dataset):
         features["aa_seq"] = sequence
         features["record"] = asdict(record)
         features["num_repeats"] = torch.tensor(self.num_repeats)
-        features['max_num_tokens'] = torch.tensor(max_num_tokens, dtype=torch.long)
-        features['cropped_num_tokens'] = torch.tensor(len(tokenized.tokens), dtype=torch.long)
+        features["max_num_tokens"] = torch.tensor(max_num_tokens, dtype=torch.long)
+        features["cropped_num_tokens"] = torch.tensor(
+            len(tokenized.tokens), dtype=torch.long
+        )
 
         return features
 
@@ -161,9 +160,7 @@ class SimpleFoldInferenceDataModule(LightningDataModule):
         # Filter training records
         if filters is not None:
             records = [
-                record
-                for record in records
-                if all(f.filter(record) for f in filters)
+                record for record in records if all(f.filter(record) for f in filters)
             ]
 
         if max_nsamples is not None:

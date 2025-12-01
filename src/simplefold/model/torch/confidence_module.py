@@ -59,16 +59,16 @@ class ConfidenceModule(nn.Module):
     ):
         token_pe_pos = torch.cat(
             [
-                feats["residue_index"].unsqueeze(-1).float(),        # (B, M, 1)
-                feats["entity_id"].unsqueeze(-1).float(),            # (B, M, 1)
-                feats["asym_id"].unsqueeze(-1).float(),              # (B, M, 1)
-                feats["sym_id"].unsqueeze(-1).float(),               # (B, M, 1)
+                feats["residue_index"].unsqueeze(-1).float(),  # (B, M, 1)
+                feats["entity_id"].unsqueeze(-1).float(),  # (B, M, 1)
+                feats["asym_id"].unsqueeze(-1).float(),  # (B, M, 1)
+                feats["sym_id"].unsqueeze(-1).float(),  # (B, M, 1)
             ],
             dim=-1,
-        )  
+        )
 
         latent = self.transformer_blocks(
-            latents=latent, 
+            latents=latent,
             c=None,
             pos=token_pe_pos,
         )

@@ -3,10 +3,9 @@
 # Copyright (c) 2025 Apple Inc. Licensed under MIT License.
 #
 
-# Started from https://github.com/jwohlwend/boltz, 
-# licensed under MIT License, Copyright (c) 2024 Jeremy Wohlwend, Gabriele Corso, Saro Passaro. 
+# Started from https://github.com/jwohlwend/boltz,
+# licensed under MIT License, Copyright (c) 2024 Jeremy Wohlwend, Gabriele Corso, Saro Passaro.
 
-import math
 from typing import Optional
 
 import numpy as np
@@ -79,7 +78,7 @@ def process_token_features(
     resolved_mask = from_numpy(token_data["resolved_mask"]).float()
     disto_mask = from_numpy(token_data["disto_mask"]).float()
 
-    # Pocket conditioned feature 
+    # Pocket conditioned feature
     # (dummy feature in SimpleFold)
     pocket_feature = (
         np.zeros(len(token_data)) + const.pocket_contact_info["UNSPECIFIED"]
@@ -262,7 +261,7 @@ def process_atom_features(
     for i, name in enumerate(atom_data["name"]):
         real_name = [chr(c + 32) for c in name if c != 0]
         real_name = "".join(real_name)
-        if real_name in ('CA', 'N', 'C', 'O'):
+        if real_name in ("CA", "N", "C", "O"):
             is_backbone[i] = True
     ref_atom_name_chars = from_numpy(atom_data["name"]).long()
     ref_element = from_numpy(atom_data["element"]).long()

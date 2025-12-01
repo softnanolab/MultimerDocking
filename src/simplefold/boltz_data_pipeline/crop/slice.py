@@ -3,14 +3,13 @@
 # Copyright (c) 2025 Apple Inc. Licensed under MIT License.
 #
 
-# Started from https://github.com/jwohlwend/boltz, 
-# licensed under MIT License, Copyright (c) 2024 Jeremy Wohlwend, Gabriele Corso, Saro Passaro. 
+# Started from https://github.com/jwohlwend/boltz,
+# licensed under MIT License, Copyright (c) 2024 Jeremy Wohlwend, Gabriele Corso, Saro Passaro.
 
 from dataclasses import replace
 from typing import Optional
 
 import numpy as np
-from scipy.spatial.distance import cdist
 
 from boltz_data_pipeline import const
 from boltz_data_pipeline.crop.cropper import Cropper
@@ -33,14 +32,15 @@ def pick_protein_token(
         The selected token.
 
     """
-    protein_ids = (tokens["mol_type"] == const.chain_type_ids["PROTEIN"])
+    protein_ids = tokens["mol_type"] == const.chain_type_ids["PROTEIN"]
     return tokens[protein_ids]
 
 
 class SliceCropper(Cropper):
     """Interpolate between contiguous and spatial crops."""
 
-    def __init__(self,
+    def __init__(
+        self,
         protein_only: bool = False,
     ) -> None:
         """Initialize the cropper.

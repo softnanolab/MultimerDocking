@@ -111,7 +111,6 @@ def batch_encode_sequences(
     residue_index_offset: T.Optional[int] = 512,
     chain_linker: T.Optional[str] = "G" * 25,
 ) -> T.Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
-
     aatype_list = []
     residx_list = []
     linker_mask_list = []
@@ -204,10 +203,10 @@ def compute_language_model_representations(
         need_head_weights=False,
     )
     if backend == "mlx":
-        res['representations'] = {k: torch.from_numpy(np.array(v)) for k,v in res['representations'].items()}
+        res["representations"] = {
+            k: torch.from_numpy(np.array(v)) for k, v in res["representations"].items()
+        }
 
-    esm_s = torch.stack(
-        [v for _, v in sorted(res["representations"].items())], dim=2
-    )
+    esm_s = torch.stack([v for _, v in sorted(res["representations"].items())], dim=2)
     esm_s = esm_s[:, 1:-1]  # B, L, nLayers, C
     return esm_s, None

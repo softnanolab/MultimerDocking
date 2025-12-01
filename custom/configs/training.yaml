@@ -1,0 +1,8 @@
+defaults:
+  - paths
+  - /lightning_module: docking_module
+  - /lightning_module/architecture: dockingdit_100M
+  - /data: AFDDI
+  - /trainer: DDP
+
+seed: 57

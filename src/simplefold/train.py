@@ -25,8 +25,7 @@ from utils.pylogger import RankedLogger
 log = RankedLogger(__name__, rank_zero_only=True)
 
 torch.set_float32_matmul_precision("medium")
-torch.backends.cuda.matmul.allow_tf32 = True # This flag defaults to False
-torch.backends.cudnn.allow_tf32 = True       # This flag defaults to True
+torch.backends.cudnn.allow_tf32 = True  # This flag defaults to True
 
 
 @task_wrapper
@@ -86,7 +85,9 @@ def train(cfg):
     )
 
 
-@hydra.main(version_base="1.3", config_path="../../configs", config_name="base_train.yaml")
+@hydra.main(
+    version_base="1.3", config_path="../../configs", config_name="base_train.yaml"
+)
 def submit_run(cfg):
     OmegaConf.resolve(cfg)
     extras(cfg)

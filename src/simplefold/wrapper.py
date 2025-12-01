@@ -21,12 +21,13 @@ from utils.fasta_utils import process_fastas, download_fasta_utilities
 from boltz_data_pipeline.feature.featurizer import BoltzFeaturizer
 from boltz_data_pipeline.tokenize.boltz_protein import BoltzTokenizer
 
-try: 
+try:
     import mlx.core as mx
-    from mlx.utils import tree_unflatten, tree_flatten
+    from mlx.utils import tree_unflatten
     from model.mlx.sampler import EMSampler as EMSamplerMLX
     from model.mlx.esm_network import ESM2 as ESM2MLX
     from utils.mlx_utils import map_torch_to_mlx, map_plddt_torch_to_mlx
+
     MLX_AVAILABLE = True
 except:
     MLX_AVAILABLE = False

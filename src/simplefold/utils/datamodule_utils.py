@@ -51,6 +51,7 @@ restype_3to1["<pad>"] = "X"
 @dataclass
 class Dataset:
     """Data holder."""
+
     tokenized_dir: str
     target_dir: Path
     esm_dir: str
@@ -66,6 +67,7 @@ class Dataset:
 @dataclass
 class DatasetConfig:
     """Dataset configuration."""
+
     data_name: str
     tokenized_dir: str
     target_dir: Path
@@ -177,7 +179,7 @@ def extract_sequence_from_tokens(tokenized):
 
 
 def process_one_inference_structure(
-    structure_path, 
+    structure_path,
     record_path,
     tokenizer: BoltzTokenizer,
     featurizer: BoltzFeaturizer,
@@ -197,8 +199,10 @@ def process_one_inference_structure(
     features["aa_seq"] = sequence
     features["record"] = record
     features["num_repeats"] = torch.tensor(1)
-    features['max_num_tokens'] = torch.tensor(len(tokenized.tokens), dtype=torch.long)
-    features['cropped_num_tokens'] = torch.tensor(len(tokenized.tokens), dtype=torch.long)
+    features["max_num_tokens"] = torch.tensor(len(tokenized.tokens), dtype=torch.long)
+    features["cropped_num_tokens"] = torch.tensor(
+        len(tokenized.tokens), dtype=torch.long
+    )
 
     batch = collate([features])
 

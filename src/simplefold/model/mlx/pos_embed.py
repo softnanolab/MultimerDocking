@@ -6,9 +6,6 @@
 import mlx.core as mx
 import mlx.nn as nn
 import math
-from einops.array_api import rearrange
-import torch
-import numpy as np
 
 
 class AbsolutePositionEncoding(nn.Module):

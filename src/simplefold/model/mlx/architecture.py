@@ -182,7 +182,6 @@ class FoldingDiT(nn.Module):
     def create_atom_attn_mask(
         self, feats, natoms, atom_n_queries=None, atom_n_keys=None, inf: float = 1e10
     ):
-
         if atom_n_queries is not None and atom_n_keys is not None:
             atom_attn_mask = self.create_local_attn_bias(
                 n=natoms, n_queries=atom_n_queries, n_keys=atom_n_keys, inf=inf
@@ -193,7 +192,6 @@ class FoldingDiT(nn.Module):
         return atom_attn_mask
 
     def __call__(self, noised_pos, t, feats, self_cond=None):
-
         B, N, _ = feats["ref_pos"].shape
         M = feats["mol_type"].shape[1]
         atom_to_token = feats["atom_to_token"].astype(mx.float32)
@@ -279,7 +277,6 @@ class FoldingDiT(nn.Module):
             attention_mask=atom_attn_mask_enc,
             pos=atom_pe_pos,
         )
-
 
         atom_latent = self.atom2latent_proj(atom_latent)
 

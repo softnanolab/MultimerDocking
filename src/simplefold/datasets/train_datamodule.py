@@ -16,7 +16,8 @@ from torch import Tensor
 from lightning import LightningDataModule
 from torch.utils.data import DataLoader
 import torch.multiprocessing
-torch.multiprocessing.set_sharing_strategy('file_system')
+
+torch.multiprocessing.set_sharing_strategy("file_system")
 
 from boltz_data_pipeline.tokenize.tokenizer import Tokenizer
 from boltz_data_pipeline.feature.featurizer import BoltzFeaturizer
@@ -90,9 +91,7 @@ class SimpleFoldTrainingDataset(torch.utils.data.Dataset):
         for dataset_idx, dataset in enumerate(datasets):
             if dataset.cluster is None:
                 records = dataset.manifest.records
-                self.samples.extend(
-                    [(dataset_idx, record.id) for record in records]
-                )
+                self.samples.extend([(dataset_idx, record.id) for record in records])
                 self.num_samples += len(records)
             else:
                 data_cluster = json.load(open(dataset.cluster, "r"))
@@ -128,7 +127,12 @@ class SimpleFoldTrainingDataset(torch.utils.data.Dataset):
 
         # load record
         record = json.load(
-            open(os.path.join(dataset.tokenized_dir, "records", f"{record_id.lower()}.json"), "r")
+            open(
+                os.path.join(
+                    dataset.tokenized_dir, "records", f"{record_id.lower()}.json"
+                ),
+                "r",
+            )
         )
         record = Record(**record)
 
@@ -194,9 +198,11 @@ class SimpleFoldTrainingDataset(torch.utils.data.Dataset):
             )
 
             features["aa_seq"] = sequence
-            features['record'] = asdict(record)
-            features['max_num_tokens'] = torch.tensor(max_num_tokens, dtype=torch.long)
-            features['cropped_num_tokens'] = torch.tensor(len(tokenized.tokens), dtype=torch.long)
+            features["record"] = asdict(record)
+            features["max_num_tokens"] = torch.tensor(max_num_tokens, dtype=torch.long)
+            features["cropped_num_tokens"] = torch.tensor(
+                len(tokenized.tokens), dtype=torch.long
+            )
 
         except Exception as e:
             print(f"Featurizer failed on {record.id} with error {e}. Skipping.")
@@ -233,7 +239,6 @@ class SimpleFoldTrainingDataModule(LightningDataModule):
         rotation_augment_ref_pos: Optional[bool] = False,
         rotation_augment_coords: Optional[bool] = False,
     ):
-
         super().__init__()
 
         self.save_hyperparameters(logger=False)
@@ -261,7 +266,9 @@ class SimpleFoldTrainingDataModule(LightningDataModule):
                 with Path(data_config.record_list).open("r") as f:
                     record_list = {x.lower() for x in f.read().splitlines()}
                 train_records = [
-                    record for record in train_records if record.id.lower() in record_list
+                    record
+                    for record in train_records
+                    if record.id.lower() in record_list
                 ]
 
             # Filter training records
@@ -366,9 +373,7 @@ class SimpleFoldTrainingDataModule(LightningDataModule):
                 raise RuntimeError(
                     f"Batch size ({self.batch_size}) is not divisible by the number of devices ({self.trainer.world_size})."
                 )
-            self.batch_size_per_device = (
-                self.batch_size // self.trainer.world_size
-            )
+            self.batch_size_per_device = self.batch_size // self.trainer.world_size
 
     def train_dataloader(self) -> DataLoader:
         """Get the training dataloader.
