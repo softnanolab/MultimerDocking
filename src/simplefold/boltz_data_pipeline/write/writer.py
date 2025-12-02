@@ -17,13 +17,13 @@ from pytorch_lightning.callbacks import BasePredictionWriter
 import torch
 from torch import Tensor
 
-from boltz_data_pipeline.types import (
+from simplefold.boltz_data_pipeline.types import (
     Interface,
     Record,
     Structure,
 )
-from boltz_data_pipeline.write.mmcif import to_mmcif
-from boltz_data_pipeline.write.pdb import to_pdb
+from simplefold.boltz_data_pipeline.write.mmcif import to_mmcif
+from simplefold.boltz_data_pipeline.write.pdb import to_pdb
 
 
 class BoltzWriter(BasePredictionWriter):

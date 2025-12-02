@@ -11,9 +11,9 @@ from typing import Optional
 
 import numpy as np
 
-from boltz_data_pipeline import const
-from boltz_data_pipeline.crop.cropper import Cropper
-from boltz_data_pipeline.types import Tokenized
+from simplefold.boltz_data_pipeline import const
+from simplefold.boltz_data_pipeline.crop.cropper import Cropper
+from simplefold.boltz_data_pipeline.types import Tokenized
 
 
 def pick_protein_token(

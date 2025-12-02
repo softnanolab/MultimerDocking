@@ -29,7 +29,7 @@ optimizer:
   weight_decay: 0.0
 
 scheduler:
-  _target_: utils.lr_scheduler.LinearWarmup
+  _target_: simplefold.utils.lr_scheduler.LinearWarmup
   _partial_: true
   min_lr: 1e-6
   max_lr: ${..optimizer.lr}

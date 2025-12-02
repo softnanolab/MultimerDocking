@@ -11,9 +11,9 @@ from typing import Optional
 from rdkit import Chem
 from torch import Tensor
 
-from boltz_data_pipeline import const
-from boltz_data_pipeline.types import Structure
-from boltz_data_pipeline.write.utils import generate_tags
+from simplefold.boltz_data_pipeline import const
+from simplefold.boltz_data_pipeline.types import Structure
+from simplefold.boltz_data_pipeline.write.utils import generate_tags
 
 
 def to_pdb(structure: Structure, plddts: Optional[Tensor] = None) -> str:  # noqa: PLR0915

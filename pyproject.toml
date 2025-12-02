@@ -66,4 +66,4 @@ dev = [
 simplefold = "simplefold.cli:main"
 
 [tool.setuptools.packages.find]
-where = ["src", "custom"]
+where = ["src"]

@@ -8,8 +8,8 @@ import torch
 from torch import nn
 
 # SF imports:
-from model.torch.pos_embed import FourierPositionEncoding, AbsolutePositionEncoding
-from model.torch.layers import FinalLayer, ConditionEmbedder, TimestepEmbedder
+from simplefold.model.torch.pos_embed import FourierPositionEncoding, AbsolutePositionEncoding
+from simplefold.model.torch.layers import FinalLayer, ConditionEmbedder, TimestepEmbedder
 
 
 #### - Start: Attention masks - ####

@@ -13,15 +13,15 @@ import torch
 from torch import Tensor, from_numpy
 from torch.nn.functional import one_hot
 
-from boltz_data_pipeline import const
-from boltz_data_pipeline.feature.pad import pad_dim
-from boltz_data_pipeline.feature.symmetry import (
+from simplefold.boltz_data_pipeline import const
+from simplefold.boltz_data_pipeline.feature.pad import pad_dim
+from simplefold.boltz_data_pipeline.feature.symmetry import (
     get_amino_acids_symmetries,
     get_chain_symmetries,
     get_ligand_symmetries,
 )
-from boltz_data_pipeline.types import Tokenized
-from utils.boltz_utils import center_random_augmentation
+from simplefold.boltz_data_pipeline.types import Tokenized
+from simplefold.utils.boltz_utils import center_random_augmentation
 
 
 def select_subset_from_mask(mask, p):

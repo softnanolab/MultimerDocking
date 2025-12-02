@@ -9,8 +9,8 @@
 from datetime import datetime
 from typing import Literal
 
-from boltz_data_pipeline.types import Record
-from boltz_data_pipeline.filter.dynamic.filter import DynamicFilter
+from simplefold.boltz_data_pipeline.types import Record
+from simplefold.boltz_data_pipeline.filter.dynamic.filter import DynamicFilter
 
 
 class DateFilter(DynamicFilter):

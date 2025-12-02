@@ -8,7 +8,7 @@
 
 from abc import ABC, abstractmethod
 
-from boltz_data_pipeline.types import Record
+from simplefold.boltz_data_pipeline.types import Record
 
 
 class DynamicFilter(ABC):

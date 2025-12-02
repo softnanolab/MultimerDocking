@@ -6,7 +6,7 @@
 import mlx.core as mx
 from tqdm import tqdm
 from einops.array_api import repeat
-from utils.mlx_utils import center_random_augmentation
+from simplefold.utils.mlx_utils import center_random_augmentation
 
 
 def logspace(start, end, steps, base=10.0, dtype=mx.float32):

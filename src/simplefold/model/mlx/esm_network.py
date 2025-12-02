@@ -10,7 +10,7 @@ from typing import Union
 import mlx.core as mx
 import mlx.nn as nn
 
-from model.mlx.esm_modules import (
+from simplefold.model.mlx.esm_modules import (
     ContactPredictionHead,
     ESM1bLayerNorm,
     RobertaLMHead,

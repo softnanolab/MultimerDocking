@@ -1,7 +1,6 @@
 '''Process the AFDB DDI from raw pdb files into .pt files 
 containing coordinates and relevant features.'''
 
-
 import torch
 import numpy as np
 import pathlib as pl
@@ -10,7 +9,6 @@ from collections import defaultdict
 from tqdm import tqdm
 from multiprocessing import Pool
 import json
-import fire
 
 import biotite.structure as struc
 import biotite.structure.info as struc_info
@@ -468,13 +466,3 @@ def process_dataset(dataset_path: str, output_path: str, N_workers: int = 1) -> 
     
     print(f"Saved {len(dimer_files)} dimer .pt files to {output_path}.")
     return None
-
-
-########################################################
-####                  Script main                  #####
-########################################################
-def main():
-    fire.Fire(process_dataset)
-
-if __name__ == "__main__":
-    main()

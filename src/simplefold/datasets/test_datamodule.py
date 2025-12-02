@@ -13,12 +13,12 @@ import torch.multiprocessing
 
 torch.multiprocessing.set_sharing_strategy("file_system")
 
-from boltz_data_pipeline.types import Manifest
-from boltz_data_pipeline.feature.featurizer import BoltzFeaturizer
-from boltz_data_pipeline.tokenize.boltz_protein import BoltzTokenizer
-from boltz_data_pipeline.filter.dynamic.filter import DynamicFilter
-from boltz_data_pipeline import const
-from utils.datamodule_utils import load_input, collate, restype_3to1
+from simplefold.boltz_data_pipeline.types import Manifest
+from simplefold.boltz_data_pipeline.feature.featurizer import BoltzFeaturizer
+from simplefold.boltz_data_pipeline.tokenize.boltz_protein import BoltzTokenizer
+from simplefold.boltz_data_pipeline.filter.dynamic.filter import DynamicFilter
+from simplefold.boltz_data_pipeline import const
+from simplefold.utils.datamodule_utils import load_input, collate, restype_3to1
 
 
 class SimpleFoldPredictionDataset(torch.utils.data.Dataset):

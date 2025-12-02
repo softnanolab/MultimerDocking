@@ -6,7 +6,7 @@ import torch
 import torch.nn.functional as F
 import lightning.pytorch as pl
 
-from utils.boltz_utils import weighted_rigid_align
+from simplefold.utils.boltz_utils import weighted_rigid_align
 
 # custom imports:
 from custom.model.pLM import esm_model_dict, calculate_esm_embedding

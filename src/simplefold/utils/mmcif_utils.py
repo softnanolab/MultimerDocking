@@ -17,8 +17,8 @@ from rdkit.Chem import AllChem
 from rdkit.Chem.rdchem import Conformer, Mol
 from sklearn.neighbors import KDTree
 
-from boltz_data_pipeline import const
-from boltz_data_pipeline.types import (
+from simplefold.boltz_data_pipeline import const
+from simplefold.boltz_data_pipeline.types import (
     Atom,
     Bond,
     Chain,

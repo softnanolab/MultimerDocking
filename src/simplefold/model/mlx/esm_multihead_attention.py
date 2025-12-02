@@ -8,7 +8,7 @@
 
 import mlx.nn as nn
 import mlx.core as mx
-from model.mlx.esm_rotary_embedding import RotaryEmbedding
+from simplefold.model.mlx.esm_rotary_embedding import RotaryEmbedding
 
 
 def utils_softmax(x, dim: int, onnx_trace: bool = False):

@@ -4,5 +4,6 @@ defaults:
   - /lightning_module/architecture: dockingdit_100M
   - /data: AFDDI
   - /trainer: DDP
-
+  - _self_
+  
 seed: 57

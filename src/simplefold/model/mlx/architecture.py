@@ -6,8 +6,8 @@
 import math
 import mlx.nn as nn
 import mlx.core as mx
-from model.mlx.layers import FinalLayer, ConditionEmbedder
-from utils.esm_utils import esm_model_dict
+from simplefold.model.mlx.layers import FinalLayer, ConditionEmbedder
+from simplefold.utils.esm_utils import esm_model_dict
 
 
 # MLX does not have a native one_hot implementation

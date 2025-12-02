@@ -1,19 +1,14 @@
 """
 Train the docking model.
 """
-
-import sys
 from pathlib import Path
-
-# Add the repo directory to Python path so custom package can be imported
-repo_dir = Path(__file__).parent.parent.parent
-sys.path.insert(0, str(repo_dir))
-
 import hydra
 import lightning.pytorch as pl
 from omegaconf import DictConfig
 from hydra.utils import instantiate
 
+repo_dir = Path(__file__).resolve().parents[2]
+config_path = repo_dir / "custom" / "configs"
 
 def train(cfg: DictConfig):
     seed = cfg.get("seed", 57)
@@ -26,7 +21,7 @@ def train(cfg: DictConfig):
 
 @hydra.main(
     version_base="1.3",
-    config_path="/rds/general/user/emb25/home/dock_proj/repo/custom/configs",
+    config_path=str(config_path),
     config_name="training.yaml",
 )
 def main(cfg: DictConfig):

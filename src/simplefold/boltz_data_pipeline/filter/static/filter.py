@@ -10,7 +10,7 @@ from abc import ABC, abstractmethod
 
 import numpy as np
 
-from boltz_data_pipeline.types import Structure
+from simplefold.boltz_data_pipeline.types import Structure
 
 
 class StaticFilter(ABC):

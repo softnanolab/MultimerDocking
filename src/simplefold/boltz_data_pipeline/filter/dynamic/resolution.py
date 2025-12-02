@@ -6,8 +6,8 @@
 # Started from https://github.com/jwohlwend/boltz,
 # licensed under MIT License, Copyright (c) 2024 Jeremy Wohlwend, Gabriele Corso, Saro Passaro.
 
-from boltz_data_pipeline.types import Record
-from boltz_data_pipeline.filter.dynamic.filter import DynamicFilter
+from simplefold.boltz_data_pipeline.types import Record
+from simplefold.boltz_data_pipeline.filter.dynamic.filter import DynamicFilter
 
 
 class ResolutionFilter(DynamicFilter):

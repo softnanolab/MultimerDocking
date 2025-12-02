@@ -10,7 +10,7 @@ import torch
 import torch.nn.functional as F
 from tqdm import tqdm
 
-from utils.boltz_utils import center_random_rotation
+from simplefold.utils.boltz_utils import center_random_rotation
 
 
 ########################################################

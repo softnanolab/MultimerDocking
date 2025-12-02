@@ -6,7 +6,7 @@
 import mlx.nn as nn
 import mlx.core as mx
 
-from model.mlx.layers import modulate, SwiGLUFeedForward
+from simplefold.model.mlx.layers import modulate, SwiGLUFeedForward
 
 
 class DiTBlock(nn.Module):

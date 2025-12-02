@@ -1,0 +1,4 @@
+paths:
+  AFDDI_manifest: /rds/general/user/emb25/home/datasets/AFDB_DDI/testing/processed/manifest.jsonl
+  AFDDI_dataset: /rds/general/user/emb25/home/datasets/AFDB_DDI/testing/raw
+  AFDDI_output: /rds/general/user/emb25/home/datasets/AFDB_DDI/testing/processed

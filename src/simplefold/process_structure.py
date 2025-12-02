@@ -16,8 +16,8 @@ from pathlib import Path
 from typing import Optional
 from dataclasses import asdict, replace, dataclass
 
-from boltz_data_pipeline.tokenize.boltz_protein import BoltzTokenizer
-from boltz_data_pipeline.types import Connection, Input, Manifest, Record, Structure
+from simplefold.boltz_data_pipeline.tokenize.boltz_protein import BoltzTokenizer
+from simplefold.boltz_data_pipeline.types import Connection, Input, Manifest, Record, Structure
 
 
 @dataclass

@@ -13,7 +13,7 @@ import mlx.nn as nn
 
 from mlx.nn import LayerNorm as ESM1bLayerNorm
 from mlx.nn import gelu
-from model.mlx.esm_multihead_attention import MultiheadAttention  # noqa
+from simplefold.model.mlx.esm_multihead_attention import MultiheadAttention  # noqa
 
 
 def symmetrize(x):

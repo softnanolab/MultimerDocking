@@ -8,9 +8,9 @@
 
 import numpy as np
 
-from boltz_data_pipeline import const
-from boltz_data_pipeline.types import Structure
-from boltz_data_pipeline.filter.static.filter import StaticFilter
+from simplefold.boltz_data_pipeline import const
+from simplefold.boltz_data_pipeline.types import Structure
+from simplefold.boltz_data_pipeline.filter.static.filter import StaticFilter
 
 LIGAND_EXCLUSION = {
     "144",

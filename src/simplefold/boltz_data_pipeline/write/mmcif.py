@@ -17,9 +17,9 @@ from modelcif.model import AbInitioModel, Atom, ModelGroup
 from rdkit import Chem
 from torch import Tensor
 
-from boltz_data_pipeline import const
-from boltz_data_pipeline.types import Structure
-from boltz_data_pipeline.write.utils import generate_tags
+from simplefold.boltz_data_pipeline import const
+from simplefold.boltz_data_pipeline.types import Structure
+from simplefold.boltz_data_pipeline.write.utils import generate_tags
 
 
 def to_mmcif(structure: Structure, plddts: Optional[Tensor] = None) -> str:  # noqa: C901, PLR0915, PLR0912

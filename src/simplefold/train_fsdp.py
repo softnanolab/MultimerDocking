@@ -13,18 +13,18 @@ from lightning.pytorch import LightningDataModule, LightningModule
 from lightning.pytorch.strategies import FSDPStrategy
 from torch.distributed.fsdp.wrap import transformer_auto_wrap_policy
 
-from model.torch.blocks import DiTBlock
-from utils.utils import (
+from simplefold.model.torch.blocks import DiTBlock
+from simplefold.utils.utils import (
     extras,
     create_folders,
     task_wrapper,
 )
-from utils.instantiators import (
+from simplefold.utils.instantiators import (
     instantiate_callbacks,
     instantiate_loggers,
 )
-from utils.logging_utils import log_hyperparameters
-from utils.pylogger import RankedLogger
+from simplefold.utils.logging_utils import log_hyperparameters
+from simplefold.utils.pylogger import RankedLogger
 
 log = RankedLogger(__name__, rank_zero_only=True)
 torch.set_float32_matmul_precision("medium")

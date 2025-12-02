@@ -9,10 +9,10 @@ from omegaconf import OmegaConf
 import lightning.pytorch as pl
 from lightning.pytorch import LightningDataModule, LightningModule
 
-from utils.utils import extras, create_folders, task_wrapper
-from utils.instantiators import instantiate_callbacks
-from utils.logging_utils import log_hyperparameters
-from utils.pylogger import RankedLogger
+from simplefold.utils.utils import extras, create_folders, task_wrapper
+from simplefold.utils.instantiators import instantiate_callbacks
+from simplefold.utils.logging_utils import log_hyperparameters
+from simplefold.utils.pylogger import RankedLogger
 
 torch.set_float32_matmul_precision("medium")
 log = RankedLogger(__name__, rank_zero_only=True)

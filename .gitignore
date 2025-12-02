@@ -2,3 +2,12 @@
 *.DS_Store
 *.egg-info
 artifacts/
+train.log
+*.egg-info
+.env
+.venv
+env
+venv
+.vscode
+.ipynb_checkpoints
+outputs

@@ -12,8 +12,8 @@ from typing import Optional
 import numpy as np
 import pandas as pd
 
-from boltz_data_pipeline import const
-from boltz_data_pipeline.types import MSA, MSADeletion, MSAResidue, MSASequence
+from simplefold.boltz_data_pipeline import const
+from simplefold.boltz_data_pipeline.types import MSA, MSADeletion, MSAResidue, MSASequence
 
 
 def parse_csv(

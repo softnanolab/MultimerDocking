@@ -12,27 +12,27 @@ from pathlib import Path
 from itertools import starmap
 import lightning.pytorch as pl
 
-from model.flow import LinearPath
-from model.torch.sampler import EMSampler
+from simplefold.model.flow import LinearPath
+from simplefold.model.torch.sampler import EMSampler
 
-from processor.protein_processor import ProteinDataProcessor
-from utils.datamodule_utils import process_one_inference_structure
-from utils.esm_utils import _af2_to_esm, esm_registry
-from utils.boltz_utils import process_structure, save_structure
-from utils.fasta_utils import (
+from simplefold.processor.protein_processor import ProteinDataProcessor
+from simplefold.utils.datamodule_utils import process_one_inference_structure
+from simplefold.utils.esm_utils import _af2_to_esm, esm_registry
+from simplefold.utils.boltz_utils import process_structure, save_structure
+from simplefold.utils.fasta_utils import (
     process_fastas,
     download_fasta_utilities,
     check_fasta_inputs,
 )
-from boltz_data_pipeline.feature.featurizer import BoltzFeaturizer
-from boltz_data_pipeline.tokenize.boltz_protein import BoltzTokenizer
+from simplefold.boltz_data_pipeline.feature.featurizer import BoltzFeaturizer
+from simplefold.boltz_data_pipeline.tokenize.boltz_protein import BoltzTokenizer
 
 try:
     import mlx.core as mx
     from mlx.utils import tree_unflatten
-    from model.mlx.sampler import EMSampler as EMSamplerMLX
-    from model.mlx.esm_network import ESM2 as ESM2MLX
-    from utils.mlx_utils import map_torch_to_mlx, map_plddt_torch_to_mlx
+    from simplefold.model.mlx.sampler import EMSampler as EMSamplerMLX
+    from simplefold.model.mlx.esm_network import ESM2 as ESM2MLX
+    from simplefold.utils.mlx_utils import map_torch_to_mlx, map_plddt_torch_to_mlx
 
     MLX_AVAILABLE = True
 except:

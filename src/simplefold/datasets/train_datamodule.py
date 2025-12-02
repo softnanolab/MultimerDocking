@@ -19,11 +19,11 @@ import torch.multiprocessing
 
 torch.multiprocessing.set_sharing_strategy("file_system")
 
-from boltz_data_pipeline.tokenize.tokenizer import Tokenizer
-from boltz_data_pipeline.feature.featurizer import BoltzFeaturizer
-from boltz_data_pipeline.filter.dynamic.filter import DynamicFilter
-from boltz_data_pipeline.types import Manifest, Record
-from utils.datamodule_utils import (
+from simplefold.boltz_data_pipeline.tokenize.tokenizer import Tokenizer
+from simplefold.boltz_data_pipeline.feature.featurizer import BoltzFeaturizer
+from simplefold.boltz_data_pipeline.filter.dynamic.filter import DynamicFilter
+from simplefold.boltz_data_pipeline.types import Manifest, Record
+from simplefold.utils.datamodule_utils import (
     Dataset,
     DatasetConfig,
     load_input,
