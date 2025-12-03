@@ -14,7 +14,7 @@ esm_layers: all # "all" for all layers, or a list of integers for specific layer
 esm_num_layers: 31
 esm_d_e: 640
 
-multiplicity: 32 # Number of dimer copies per GPU for efficient MC averaging over t,R,z.
+multiplicity: 64 # Number of dimer copies per GPU for efficient MC averaging over t,R,z.
 
 scale_true_coords: 16.0 # True coords are divided by this factor before being passed to the model.
 scale_ref_coords: 5.0 # Ref coords are divided by this factor before being passed to the model.
