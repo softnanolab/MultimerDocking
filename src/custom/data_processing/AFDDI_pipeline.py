@@ -41,7 +41,7 @@ def group_exact_pairs(dataset_path: str) -> list[tuple[str, str]]:
 ########################################################
 
 class TestInputData(Transform):
-    """Annotate each atom with CCD ideal residue coordinates (CCD frame, i.e. local residue frames)."""
+    """Verifies the input data is valid."""
 
     requires_previous_transforms = []
     incompatible_previous_transforms = []
@@ -80,6 +80,27 @@ class DropOXTAtoms(Transform):
         mask = (atom_array.atom_name != "OXT")
         atom_array = atom_array[mask]
 
+        data["atom_array"] = atom_array
+        return data
+
+class BackboneOnly(Transform):
+    """Drop all atoms except for the backbone."""
+
+    requires_previous_transforms = [TestInputData,]
+    incompatible_previous_transforms = []
+
+    def __init__(self, backbone_only: bool) -> None:
+        self.backbone_only = backbone_only
+
+    def check_input(self, data: dict) -> None:
+        assert "atom_array" in data
+        assert isinstance(data["atom_array"], struc.AtomArray)
+
+    def forward(self, data: dict) -> dict:
+        atom_array = data["atom_array"]
+        if self.backbone_only:
+            mask = np.isin(atom_array.atom_name, ["N", "CA", "C", "O"])
+            atom_array = atom_array[mask]
         data["atom_array"] = atom_array
         return data
 
@@ -351,13 +372,14 @@ class BuildFeatureDict(Transform):
     """Builds feature dictionary for the dimer."""
 
     requires_previous_transforms = [
-        TestInputData(),
-        DropOXTAtoms(),
-        AnnotateResidueId(),
-        AnnotateOneLetterCode(),
-        AnnotateResTypeFeat(),
-        AnnotateAtomNameFeat(),
-        AnnotateRefPos(),
+        TestInputData,
+        DropOXTAtoms,
+        BackboneOnly,
+        AnnotateResidueId,
+        AnnotateOneLetterCode,
+        AnnotateResTypeFeat,
+        AnnotateAtomNameFeat,
+        AnnotateRefPos,
     ]
     incompatible_previous_transforms = []
 
@@ -376,11 +398,12 @@ class BuildFeatureDict(Transform):
 ########################################################
 ####       Pipeline and final processing           #####
 ########################################################
-def build_pipeline() -> Compose:
+def build_pipeline(backbone_only: bool) -> Compose:
     """Build the pipeline for processing the PDB Multimers dataset as prepared for mint (already contains dimers only)."""
     pipeline = Compose([
         TestInputData(),
         DropOXTAtoms(),
+        BackboneOnly(backbone_only),
         AnnotateResidueId(),
         AnnotateOneLetterCode(),
         AnnotateResTypeFeat(),
@@ -401,10 +424,11 @@ def add_to_manifest(manifest_path: str, json_dict: dict) -> None:
         f.write(json.dumps(json_dict) + "\n")
     return None
 
-def process_dimer(args: tuple[tuple[str, str], str]) -> dict:
+def process_dimer(args: tuple[tuple[str, str], str, bool]) -> dict:
     """Extract the feature dictionary for a multimer in cif_file and save it to a torch .pt file at output_path."""
     chain_files = args[0]
     output_path = args[1]
+    backbone_only = args[2]
 
     chain_files = [pl.Path(chain_file) for chain_file in chain_files]
     output_path = pl.Path(output_path)
@@ -427,7 +451,7 @@ def process_dimer(args: tuple[tuple[str, str], str]) -> dict:
 
     # Feed through atomworks transforms pipeline:
     in_data = {"atom_array": joint_atom_array}
-    pipeline = build_pipeline()
+    pipeline = build_pipeline(backbone_only)
     out_data = pipeline(in_data)
 
     feature_dict = out_data["feat_dict"]
@@ -439,10 +463,11 @@ def process_dimer(args: tuple[tuple[str, str], str]) -> dict:
         "path": str(out_file), 
         "chain_ids": [str(chain_id) for chain_id in chain_ids],
         "sequence_lengths": [len(feature_dict[chain_id]["sequence"]) for chain_id in chain_ids],
+        "backbone_only": backbone_only,
     }
     return out_json
 
-def process_dataset(dataset_path: str, output_path: str, N_workers: int = 1) -> None:
+def process_dataset(dataset_path: str, output_path: str, N_workers: int = 1, backbone_only: bool = False) -> None:
     """Extracts the feature dict for each dimer from all pdb files in dataset_path dir and saves dimer feats. to output_path dir as .pt files."""
     # Convert N_workers to int in case it's passed as a string from command line:
     N_workers = int(N_workers)
@@ -456,7 +481,13 @@ def process_dataset(dataset_path: str, output_path: str, N_workers: int = 1) -> 
         manifest_path.unlink()
 
     dimer_files = group_exact_pairs(dataset_path)
-    args = [(dimer_pair, output_path) for dimer_pair in dimer_files]
+    args = [(dimer_pair, output_path, backbone_only) for dimer_pair in dimer_files]
+
+    print(f"Starting to process {len(args)} dimers with {N_workers} workers...")
+    if backbone_only:
+        print("Extracting backbone only...")
+    else:
+        print("Extracting full heavy atoms set...")
 
     with Pool(processes=N_workers) as pool:
         for out_json in tqdm(pool.imap_unordered(process_dimer, args),

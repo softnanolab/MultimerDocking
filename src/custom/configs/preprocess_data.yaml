@@ -3,3 +3,4 @@ defaults:
   - _self_
 
 N_workers: 4
+backbone_only: True

@@ -143,7 +143,7 @@ def scale_coords(batch, scale_true_coords, scale_ref_coords):
             chain_dict["ref_pos"] = chain_dict["ref_pos"] / scale_ref_coords
     return batch
 
-def center_and_rotate_chains(batch, device: torch.device):
+def center_and_rotate_chains(batch, multiplicity: int, device: torch.device):
     """
     Adds augmented coords as "augmented_coords" in the chain dicts which are independently centered and randomly rotated chains coords.
     Inputs:
@@ -154,42 +154,43 @@ def center_and_rotate_chains(batch, device: torch.device):
     for feat_dict in batch:
         for chain_dict in feat_dict.values():
             true_coords = chain_dict["true_coords"] # (1, N_atoms, 3)
-            B, N_atoms, _ = true_coords.shape
-            atom_mask = torch.ones(B, N_atoms, device=device) # (1, N_atoms). Augmentation function requires an atom mask, which is currently trivially 1 for all atoms.
-            augmented_coords = center_random_rotation(true_coords, atom_mask=atom_mask, rotation=True, centering=True, return_second_coords=False, second_coords=None)
+
+            augmented_coords = true_coords.repeat_interleave(multiplicity, dim=0).float() # (multiplicity = B, N_atoms, 3)
+            B, N_atoms, _ = augmented_coords.shape
+            atom_mask = torch.ones(B, N_atoms, device=device) # (B, N_atoms). Augmentation function requires an atom mask, which is currently trivially 1 for all atoms.
+            augmented_coords = center_random_rotation(augmented_coords, atom_mask=atom_mask, rotation=True, centering=True, return_second_coords=False, second_coords=None)
+            
             chain_dict["augmented_coords"] = augmented_coords
     return batch
 
-def prepare_input_features(dimer_feat_dict, t_multiplicity: int, device: torch.device):
+def prepare_input_features(dimer_feat_dict, multiplicity: int, device: torch.device):
     """
     Prepares features for the forward pass. This includes feature addition, reshaping and multiplicity handling.
     """
     for chain_id, chain_dict in dimer_feat_dict.items():
 
-        chain_dict["pLM_emb"] = chain_dict["pLM_emb"].repeat_interleave(t_multiplicity, dim=0).float() # (B, N_r, pLM_num_layers, d_e)
+        chain_dict["pLM_emb"] = chain_dict["pLM_emb"].repeat_interleave(multiplicity, dim=0).float() # (B, N_r, pLM_num_layers, d_e)
 
-        chain_dict["true_coords"] = chain_dict["true_coords"].repeat_interleave(t_multiplicity, dim=0).float() # (B, N_atoms, 3)
-
-        chain_dict["augmented_coords"] = chain_dict["augmented_coords"].repeat_interleave(t_multiplicity, dim=0).float() # (B, N_atoms, 3)
+        chain_dict["true_coords"] = chain_dict["true_coords"].repeat_interleave(multiplicity, dim=0).float() # (B, N_atoms, 3)
 
         N_r = len(chain_dict["sequence"])
-        chain_dict["sequence_length"] = torch.tensor([N_r], device=device).repeat_interleave(t_multiplicity, dim=0).unsqueeze(-1).float() # (B, 1)
+        chain_dict["sequence_length"] = torch.tensor([N_r], device=device).repeat_interleave(multiplicity, dim=0).unsqueeze(-1).float() # (B, 1)
 
-        chain_dict["atom_to_token"] = F.one_hot(chain_dict["res_id"].long(), num_classes=N_r).float().repeat_interleave(t_multiplicity, dim=0) # (B, N_atoms, N_r)
+        chain_dict["atom_to_token"] = F.one_hot(chain_dict["res_id"].long(), num_classes=N_r).float().repeat_interleave(multiplicity, dim=0) # (B, N_atoms, N_r)
 
-        chain_dict["res_id"] = chain_dict["res_id"].float().repeat_interleave(t_multiplicity, dim=0).unsqueeze(-1) # (B, N_atoms, 1)
+        chain_dict["res_id"] = chain_dict["res_id"].float().repeat_interleave(multiplicity, dim=0).unsqueeze(-1) # (B, N_atoms, 1)
 
-        chain_dict["ref_pos"] = chain_dict["ref_pos"].float().repeat_interleave(t_multiplicity, dim=0) # (B, N_atoms, 3)
+        chain_dict["ref_pos"] = chain_dict["ref_pos"].float().repeat_interleave(multiplicity, dim=0) # (B, N_atoms, 3)
 
-        chain_dict["charge"] = chain_dict["charge"].float().repeat_interleave(t_multiplicity, dim=0).unsqueeze(-1) # (B, N_atoms, 1)
+        chain_dict["charge"] = chain_dict["charge"].float().repeat_interleave(multiplicity, dim=0).unsqueeze(-1) # (B, N_atoms, 1)
 
-        chain_dict["atomic_number"] = F.one_hot(chain_dict["atomic_number"].long(), num_classes=128).float().repeat_interleave(t_multiplicity, dim=0) # (B, N_atoms, 128)
+        chain_dict["atomic_number"] = F.one_hot(chain_dict["atomic_number"].long(), num_classes=128).float().repeat_interleave(multiplicity, dim=0) # (B, N_atoms, 128)
 
-        chain_dict["atom_name_feat"] = F.one_hot(chain_dict["atom_name_feat"].long(), num_classes=64).float().repeat_interleave(t_multiplicity, dim=0) # (B, N_atoms, 4, 64)
+        chain_dict["atom_name_feat"] = F.one_hot(chain_dict["atom_name_feat"].long(), num_classes=64).float().repeat_interleave(multiplicity, dim=0) # (B, N_atoms, 4, 64)
         B, N_atoms, ch, bin = chain_dict["atom_name_feat"].shape
         chain_dict["atom_name_feat"] = chain_dict["atom_name_feat"].reshape(B, N_atoms, ch * bin).float() # (B, N_atoms, 256)
 
-        chain_dict["res_type_feat"] = F.one_hot(chain_dict["res_type_feat"].long(), num_classes=23).float().repeat_interleave(t_multiplicity, dim=0) # (B, N_atoms, 23)
+        chain_dict["res_type_feat"] = F.one_hot(chain_dict["res_type_feat"].long(), num_classes=23).float().repeat_interleave(multiplicity, dim=0) # (B, N_atoms, 23)
         
     return dimer_feat_dict
 
@@ -217,8 +218,8 @@ def split_chains(dimer_feat_dict, key, concatenated_tensor):
 
 def extract_and_center_full_dimer(dimer_feat_dict, device: torch.device):
     """
-    Build the full dimer coords from the chains, centers the full dimer and returns the it.
-    Note that the chains atoms are stacked along the atom dim. The chains are stacked according to their order in the dimer_feat_dict.
+    Build the full dimer coords from the chains, centers the full dimer and returns it.
+    Note that the chains are stacked concatenated along the atom dim according to their order in the dimer_feat_dict.
     """
     full_dimer_coords = merge_chains(dimer_feat_dict, "true_coords") # (B, N_atoms_A + N_atoms_B, 3)
     B, N_atoms, _ = full_dimer_coords.shape

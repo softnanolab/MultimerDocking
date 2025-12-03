@@ -8,6 +8,7 @@ strategy:
   gradient_as_bucket_view: True
 num_nodes: 1
 precision: bf16-mixed
+accumulate_grad_batches: 4
 max_steps: 100000
 logger:
   - _target_: lightning.pytorch.loggers.WandbLogger

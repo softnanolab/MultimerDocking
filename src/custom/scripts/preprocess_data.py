@@ -21,7 +21,8 @@ def main(cfg: DictConfig):
     dataset_path = cfg.paths.AFDDI_dataset
     output_path = cfg.paths.AFDDI_output
     N_workers = cfg.N_workers
-    process_dataset(dataset_path, output_path, N_workers)
+    backbone_only = cfg.backbone_only
+    process_dataset(dataset_path, output_path, N_workers, backbone_only)
 
 if __name__ == "__main__":
     main()
