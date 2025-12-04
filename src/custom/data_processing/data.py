@@ -54,6 +54,24 @@ def min_individual_sequence_length(entry: dict, N_min: int) -> bool:
             return False
     return True
 
+def train_filter(entry: dict) -> bool:
+    """
+    Filters entries by whether they are in the train set.
+    """
+    if entry["split"] == "train":
+        return True
+    else:
+        return False
+
+def val_filter(entry: dict) -> bool:
+    """
+    Filters entries by whether they are in the validation set.
+    """
+    if entry["split"] == "val":
+        return True
+    else:
+        return False
+
 def filter_data(manifest_path: str, Filter: Filter = None) -> list[str]:
     """
     Parses the manifest.jsonl and filters the data according to the given Filter object.
@@ -103,31 +121,6 @@ def AFDDI_collate_fn(batch):
     Collate function for AFDDI dataset.
     """
     return batch
-
-def build_AFDDI_dataloader(Dataset,
-                           batch_size: int = 1,
-                           shuffle: bool = True,
-                           num_workers: int = 1,
-                           pin_memory: bool = True,
-                           persistent_workers: bool = True,
-                           drop_last: bool = True,
-                           collate_fn: callable = AFDDI_collate_fn,
-                           **kwargs) -> torch.utils.data.DataLoader:
-    """
-    Initialize the AFDDI dataloader and return it.
-    """
-    dataloader = torch.utils.data.DataLoader(
-        Dataset,
-        batch_size=batch_size,
-        shuffle=shuffle,
-        num_workers=num_workers,
-        pin_memory=pin_memory,
-        persistent_workers=persistent_workers,
-        drop_last=drop_last,
-        collate_fn=collate_fn,
-        **kwargs
-    )
-    return dataloader
 
 
 ########################################################
@@ -216,14 +209,14 @@ def split_chains(dimer_feat_dict, key, concatenated_tensor):
         offset += N_atoms
     return dimer_feat_dict
 
-def extract_and_center_full_dimer(dimer_feat_dict, device: torch.device):
+def extract_full_dimer_coords(dimer_feat_dict, device: torch.device):
     """
-    Build the full dimer coords from the chains, centers the full dimer and returns it.
+    Build the full dimer coords from the chains, centers and randomly rotates the full dimer and returns it.
     Note that the chains are stacked concatenated along the atom dim according to their order in the dimer_feat_dict.
     """
     full_dimer_coords = merge_chains(dimer_feat_dict, "true_coords") # (B, N_atoms_A + N_atoms_B, 3)
     B, N_atoms, _ = full_dimer_coords.shape
     atom_mask = torch.ones(B, N_atoms, device=device) # (B, N_atoms). Augmentation function requires an atom mask, which is currently trivially 1 for all atoms.
-    full_dimer_coords = center_random_rotation(full_dimer_coords, atom_mask=atom_mask, rotation=False, centering=True, return_second_coords=False, second_coords=None)
+    full_dimer_coords = center_random_rotation(full_dimer_coords, atom_mask=atom_mask, rotation=True, centering=True, return_second_coords=False, second_coords=None)
     return full_dimer_coords
 

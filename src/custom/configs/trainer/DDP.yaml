@@ -1,5 +1,8 @@
 _target_: lightning.pytorch.trainer.Trainer
 default_root_dir: ./artifacts
+
+deterministic: False
+
 accelerator: gpu
 devices: auto
 strategy: 
@@ -14,6 +17,26 @@ logger:
   - _target_: lightning.pytorch.loggers.WandbLogger
     project: docking_model
     # name: ${hydra:job.name}
-    save_dir: ${trainer.default_root_dir}/wandb
+    save_dir: ${trainer.default_root_dir}/logger
     log_model: False
+
+# Validation and checkpointing:
+val_check_interval: 1000
+enable_checkpointing: True
+callbacks:
+  - _target_: lightning.pytorch.callbacks.ModelCheckpoint
+    dirpath: ${trainer.default_root_dir}/checkpoints
+    filename: "best_val_loss-{step:06d}"
+    monitor: "val/loss"
+    mode: "min"
+    save_top_k: 1
+    save_last: False
+
+# Checkpointing every n steps:
+  - _target_: lightning.pytorch.callbacks.ModelCheckpoint
+    dirpath: ${trainer.default_root_dir}/checkpoints
+    filename: "periodic-{step:06d}"
+    every_n_train_steps: 1000    
+    save_top_k: 1                
+    save_last: False
 

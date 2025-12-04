@@ -6,11 +6,16 @@ import torch
 import torch.nn.functional as F
 import lightning.pytorch as pl
 
-from simplefold.utils.boltz_utils import weighted_rigid_align
-
 # custom imports:
 from custom.model.pLM import esm_model_dict, calculate_esm_embedding
-from custom.data_processing.data import center_and_rotate_chains, prepare_input_features, scale_coords, extract_and_center_full_dimer, merge_chains, split_chains
+from custom.data_processing.data import (
+    center_and_rotate_chains,
+    prepare_input_features,
+    scale_coords,
+    extract_full_dimer_coords,
+    merge_chains,
+    split_chains,
+)
 
 
 def logit_normal_sample(n=1, m=0.0, s=1.0):
@@ -66,16 +71,17 @@ class DockingModel(pl.LightningModule):
 
     def forward(self, t, feats):
         return self.architecture(t, feats)
-
-    def training_step(self, batch, batch_idx):
+    
+    def _shared_step(self, batch, batch_idx):
         with torch.no_grad():
+
             batch = scale_coords(batch, self.scale_true_coords, self.scale_ref_coords)
 
             # ESM embedding:
             batch = calculate_esm_embedding(batch, self.esm_model, self.esm_alphabet, self.esm_layers)
             
-            # Center and randomly rotate chains:
-            batch = center_and_rotate_chains(batch, multiplicity=self.multiplicity, device=self.device)
+            # Adds augmented coords for each chain independently which are centered and randomly rotated from the true coords:
+            batch = center_and_rotate_chains(batch, multiplicity=self.multiplicity, device=self.device) 
 
             # Prepare dimer features for forward pass:
             assert len(batch) == 1, "ERROR: Only one dimer per GPU allowed."
@@ -83,16 +89,15 @@ class DockingModel(pl.LightningModule):
 
             dimer_feat_dict = prepare_input_features(dimer_feat_dict, self.multiplicity, device=self.device)
 
-            # Sample timesteps for forward pass:
+            # Sample timesteps:
             t_size = self.multiplicity * len(batch)
             t = 0.98 * logit_normal_sample(n=t_size, m=0.8, s=1.7) + 0.02 * torch.rand(
                 t_size
             )
             t = t.to(self.device)
-            # What about numerical stability for t~0 or 1?
 
             x_0 = merge_chains(dimer_feat_dict, "augmented_coords") # (B, N_atoms_A + N_atoms_B, 3)
-            x_1 = extract_and_center_full_dimer(dimer_feat_dict, device=self.device) # (B, N_atoms_A + N_atoms_B, 3)
+            x_1 = extract_full_dimer_coords(dimer_feat_dict, device=self.device) # (B, N_atoms_A + N_atoms_B, 3)
             z = torch.randn_like(x_1) # (B, N_atoms_A + N_atoms_B, 3)
             x_t = self.interpolant.compute_x_t(t.view(-1, 1, 1), x_0, x_1, z) # (B, N_atoms_A + N_atoms_B, 3)
 
@@ -101,27 +106,25 @@ class DockingModel(pl.LightningModule):
         # Forward pass:
         dimer_feat_dict = self.forward(t, dimer_feat_dict)
         v_predicted = merge_chains(dimer_feat_dict, "velocity_field") # (B, N_atoms_A + N_atoms_B, 3)
-
-        # with torch.no_grad(), torch.autocast("cuda", enabled=False):
-        #     B, N_atoms, _ = x_1.shape
-        #     v_t = v_predicted.detach().float()
-        #     x_hat = x_t.detach().float() + v_t * (1.0 - t[:, None, None])
-        #     true_coords = x_1.detach().float()
-        #     align_weights = torch.ones(B, N_atoms, device=self.device)
-        #     mask = torch.ones(B, N_atoms, device=self.device)
-        #     x_1_aligned = weighted_rigid_align(
-        #         true_coords,
-        #         x_hat.detach().float(),
-        #         align_weights.float(),
-        #         mask=mask.float(),
-        #     )
-        #     v_target = self.interpolant.velocity_target(t.view(-1, 1, 1), x_0, x_1_aligned, z) # (B, N_atoms_A + N_atoms_B, 3)
         v_target = self.interpolant.velocity_target(t.view(-1, 1, 1), x_0, x_1, z) # (B, N_atoms_A + N_atoms_B, 3)
 
         loss = F.mse_loss(v_predicted, v_target)
+        return loss
+
+    def training_step(self, batch, batch_idx):
+        loss = self._shared_step(batch, batch_idx)
 
         # Logging:
-        self.log("train/loss", loss, on_step=True, on_epoch=True, prog_bar=True, logger=True, sync_dist=True, batch_size=len(batch))
+        self.log("train/loss", loss, on_step=True, on_epoch=True, prog_bar=True, logger=True, sync_dist=True, batch_size=len(batch)*self.multiplicity)
+
+        return loss
+    
+    @torch.no_grad()
+    def validation_step(self, batch, batch_idx):
+        loss = self._shared_step(batch, batch_idx)
+
+        # Logging:
+        self.log("val/loss", loss, on_step=False, on_epoch=True, prog_bar=True, logger=True, sync_dist=True, batch_size=len(batch)*self.multiplicity)
 
         return loss
 

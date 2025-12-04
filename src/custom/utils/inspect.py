@@ -45,7 +45,7 @@ def cif_from_tensor(chain_coords: list[torch.Tensor],
     for coords, chain_id, seq in zip(chain_coords, chain_ids, seqs):
         assert coords.ndim == 3 and coords.shape[0] == 1 and coords.shape[2] == 3, "ERROR: Coordinates shape mismatch"
         N_atoms = coords.shape[1]
-        xyz = coords.detach().cpu().numpy().squeeze(0) # (N_atoms, 3)
+        xyz = coords.detach().cpu().float().numpy().squeeze(0) # (N_atoms, 3)
         xyz *= scale
 
         # Construct residue level quantities (depending on number of atoms in the residue):

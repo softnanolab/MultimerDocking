@@ -459,15 +459,18 @@ def process_dimer(args: tuple[tuple[str, str], str, bool]) -> dict:
     out_file = files_path / f"{chain_files[0].stem.split('_')[0]}.pt"
     save_feature_dict(feature_dict, out_file)
 
+    split = np.random.choice(["train", "val"], p=[0.9, 0.1])
+
     out_json = {
         "path": str(out_file), 
         "chain_ids": [str(chain_id) for chain_id in chain_ids],
         "sequence_lengths": [len(feature_dict[chain_id]["sequence"]) for chain_id in chain_ids],
         "backbone_only": backbone_only,
+        "split": split,
     }
     return out_json
 
-def process_dataset(dataset_path: str, output_path: str, N_workers: int = 1, backbone_only: bool = False) -> None:
+def process_dataset(dataset_path: str, output_path: str, N_workers: int = 1, backbone_only: bool = True) -> None:
     """Extracts the feature dict for each dimer from all pdb files in dataset_path dir and saves dimer feats. to output_path dir as .pt files."""
     # Convert N_workers to int in case it's passed as a string from command line:
     N_workers = int(N_workers)
