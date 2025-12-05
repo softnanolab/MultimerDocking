@@ -16,7 +16,7 @@ from custom.data_processing.data import (
     merge_chains,
     split_chains,
 )
-
+from custom.utils.inspect import cif_from_tensor
 
 def logit_normal_sample(n=1, m=0.0, s=1.0):
     # Logit-Normal Sampling from https://arxiv.org/pdf/2403.03206.pdf
@@ -43,6 +43,7 @@ class DockingModel(pl.LightningModule):
             optimizer,
             scheduler,
             sampler,
+            backbone_only,
     ):
         super().__init__()
         
@@ -72,6 +73,8 @@ class DockingModel(pl.LightningModule):
 
         self.sampler = sampler(model=self, multiplicity=self.multiplicity)
 
+        self.backbone_only = backbone_only
+
     def configure_optimizers(self):
         # Exclude ESM model parameters since they're frozen:
         trainable_params = [p for p in self.parameters() if p.requires_grad]
@@ -95,14 +98,15 @@ class DockingModel(pl.LightningModule):
     def on_after_batch_transfer(self, batch, dataloader_idx):
         """
         Performs GPU transformations on the batch of all dataloaders.
+        This does not introduce multiplicity yet, because multiplicity can vary between dataloaders, e.g. for validation sampling.
         """
         batch = scale_coords(batch, self.scale_true_coords, self.scale_ref_coords)
         batch = calculate_esm_embedding(batch, self.esm_model, self.esm_alphabet, self.esm_layers)
-        batch = center_and_rotate_chains(batch, multiplicity=self.multiplicity, device=self.device) # Adds augmented coords for each chain independently
         return batch
     
     def _shared_step(self, batch, batch_idx):
         with torch.no_grad():
+            batch = center_and_rotate_chains(batch, multiplicity=self.multiplicity, device=self.device) # Adds augmented coords for each chain independently
             assert len(batch) == 1, "ERROR: Only one dimer per GPU allowed."
             dimer_feat_dict = batch[0]
             dimer_feat_dict = prepare_input_features(dimer_feat_dict, self.multiplicity, device=self.device)
@@ -139,25 +143,53 @@ class DockingModel(pl.LightningModule):
         # Logging:
         self.log("train/loss", loss, on_step=True, on_epoch=True, prog_bar=True, logger=True, sync_dist=True, batch_size=len(batch)*self.multiplicity)
 
+        self.log("trainer/global_step", float(self.global_step), on_step=True, on_epoch=False, logger=True)
+
         return loss
     
     @torch.no_grad()
-    def validation_step(self, batch, batch_idx):
-        loss = self._shared_step(batch, batch_idx)
-
-        # Logging:
-        self.log("val/loss", loss, on_step=False, on_epoch=True, prog_bar=True, logger=True, sync_dist=True, batch_size=len(batch)*self.multiplicity)
-
-        return loss
-
-    # def on_validation_epoch_end(self):
-    #     # Run validation sampling
-    #     pass
+    def validation_step(self, batch, batch_idx, dataloader_idx: int = 0):
+        # Validation loss:
+        if dataloader_idx == 0:
+            loss = self._shared_step(batch, batch_idx)
+            self.log("val/loss", loss, on_step=False, on_epoch=True, prog_bar=True, logger=True, sync_dist=True, batch_size=len(batch)*self.multiplicity, add_dataloader_idx=False)
+            return loss
+        # Validation sampling:
+        elif dataloader_idx == 1:
+            self._validation_sampling(batch, batch_idx)
+            return None
     
-    # @torch.no_grad()
-    # def _validation_sampling(self, batch, batch_idx):
-    #     """
-    #     """
-    #     assert len(batch) == 1, "ERROR: Only one dimer per GPU allowed."
-    #     dimer_feat_dict = batch[0]
-    #     dimer_feat_dict = prepare_input_features(dimer_feat_dict, self.multiplicity, device=self.device)
+    @torch.no_grad()
+    def _validation_sampling(self, batch, batch_idx):
+        """
+        Runs validation sampling on a single batch (dimer).
+        """
+        multiplicity = 1
+        batch = center_and_rotate_chains(batch, multiplicity=multiplicity, device=self.device) # Adds augmented coords for each chain independently
+        assert len(batch) == 1, "ERROR: Only one dimer per GPU allowed."
+        dimer_feat_dict = batch[0]
+        multiplicity = 1
+        dimer_feat_dict = prepare_input_features(dimer_feat_dict, multiplicity, device=self.device)
+        dimer_feat_dict = self.sampler.sample(dimer_feat_dict)
+
+        root_dir = self.trainer.default_root_dir
+        protein_id = list(dimer_feat_dict.values())[0]["protein_id"]
+        file = f"{root_dir}/validation_sampling/val_sample_step-{self.global_step}/{protein_id}.cif"
+
+        chain_coords = []
+        chain_ids = []
+        seqs = []
+        for chain_id, chain_dict in dimer_feat_dict.items():
+            chain_coords.append(chain_dict["final_sampled_coords"])
+            chain_ids.append(chain_id)
+            seqs.append(chain_dict["sequence"])
+
+        cif_from_tensor(
+            chain_coords,
+            chain_ids,
+            seqs,
+            file,
+            backbone_only=self.backbone_only,
+            scale=self.scale_true_coords
+        )
+        return None

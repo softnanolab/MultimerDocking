@@ -41,3 +41,5 @@ sampler:
   num_timesteps: 500
   t_start: 1e-4
   t_end: 1.0
+
+backbone_only: True # Whether the training data is backbone only.

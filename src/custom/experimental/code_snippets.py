@@ -1,3 +1,13 @@
+########################################################
+####    Saving CIFs from tensors for debugging     #####
+########################################################
+# from custom.utils.inspect import cif_from_tensor # for debugging
+x_list = [x_t[:, :N_atoms_A, :], x_t[:, N_atoms_A:, :]]
+c_id_list = ["D1", "D2"]
+seq_list = [dimer_feat_dict["D1"]["sequence"], dimer_feat_dict["D2"]["sequence"]]
+file_path = "/projects/u5dp/Erik/dock/testing/cifs_from_tensors/6_x_t.cif"
+cif_from_tensor(x_list, c_id_list, seq_list, file_path, backbone_only=True, scale=16.0)
+
 
 
 ########################################################

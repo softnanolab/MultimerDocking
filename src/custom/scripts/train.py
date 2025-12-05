@@ -15,13 +15,16 @@ def train(cfg: DictConfig):
     pl.seed_everything(seed, workers=True)
     
     model = instantiate(cfg.lightning_module)
+
     train_dataloader = instantiate(cfg.data.train_dataloader)
     val_dataloader = instantiate(cfg.data.val_dataloader)
+    val_sampling_dataloader = instantiate(cfg.data.val_sampling_dataloader)
+    
     trainer = instantiate(cfg.trainer)
     trainer.fit(
         model,
         train_dataloaders=train_dataloader,
-        val_dataloaders=val_dataloader,
+        val_dataloaders=[val_dataloader, val_sampling_dataloader]
     )
 
 @hydra.main(

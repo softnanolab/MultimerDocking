@@ -72,6 +72,15 @@ def val_filter(entry: dict) -> bool:
     else:
         return False
 
+def val_sampling_filter(entry: dict) -> bool:
+    """
+    Filters entries by whether they are in the validation sampling set.
+    """
+    if entry["val_sampling"] == True:
+        return True
+    else:
+        return False
+
 def filter_data(manifest_path: str, Filter: Filter = None) -> list[str]:
     """
     Parses the manifest.jsonl and filters the data according to the given Filter object.

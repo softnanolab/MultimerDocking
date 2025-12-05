@@ -45,7 +45,34 @@ val_dataloader:
   shuffle: False
   num_workers: 16 # workers per GPU
   pin_memory: True
-  persistent_workers: False
+  persistent_workers: True
+  drop_last: False
+  collate_fn:
+    _target_: custom.data_processing.data.AFDDI_collate_fn
+    _partial_: True
+
+
+val_sampling_dataloader:
+  _target_: torch.utils.data.DataLoader
+  dataset: 
+    _target_: custom.data_processing.data.AFDDI_Dataset
+    manifest_path: ${paths.AFDDI_manifest}
+    Filter:
+      _target_: custom.data_processing.data.Filter
+      filters:
+        - _target_: custom.data_processing.data.val_sampling_filter
+          _partial_: True
+        - _target_: custom.data_processing.data.max_combined_sequence_length
+          _partial_: True
+          N_max: 1024
+        - _target_: custom.data_processing.data.min_individual_sequence_length
+          _partial_: True
+          N_min: 10
+  batch_size: 1 # each GPU gets batch_size number of dimers
+  shuffle: False
+  num_workers: 8 # workers per GPU
+  pin_memory: True
+  persistent_workers: True
   drop_last: False
   collate_fn:
     _target_: custom.data_processing.data.AFDDI_collate_fn

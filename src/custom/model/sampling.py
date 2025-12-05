@@ -31,13 +31,25 @@ class EulerSampler:
 
     @torch.no_grad()
     def sample(self, dimer_feat_dict):
+        device = next(self.model.parameters()).device
+        self.timepoints = self.timepoints.to(device)
+        
+        # Set initial coordinates:
         x = merge_chains(dimer_feat_dict, "augmented_coords") # (B, N_atoms_A + N_atoms_B, 3)
+
         for i in tqdm(range(self.num_timesteps), desc="Sampling", total=self.num_timesteps):
             t = self.timepoints[i].unsqueeze(0).repeat_interleave(self.multiplicity, dim=0) # (B,)
             t_next = self.timepoints[i+1].unsqueeze(0).repeat_interleave(self.multiplicity, dim=0) # (B,)
             dimer_feat_dict = self.model(t, dimer_feat_dict)
+
             v_predicted = merge_chains(dimer_feat_dict, "velocity_field") # (B, N_atoms_A + N_atoms_B, 3)
+            
             delta_x = v_predicted * (t_next - t)
             x = x + delta_x
+
+            # Update coordinates for input to the model in the next time step:
+            dimer_feat_dict = split_chains(dimer_feat_dict, "augmented_coords", x)
+
+
         dimer_feat_dict = split_chains(dimer_feat_dict, "final_sampled_coords", x)
         return dimer_feat_dict

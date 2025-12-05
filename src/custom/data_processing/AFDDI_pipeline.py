@@ -20,7 +20,6 @@ from atomworks.io import parse as atomworks_parse
 ########################################################
 ####         Data import and preprocessing         #####
 ########################################################
-
 def group_exact_pairs(dataset_path: str) -> list[tuple[str, str]]:
     '''Group the AFDB DDI file paths from the given directory into pairs of dimers. Drop ids with != 2 files(chains).
     Pairs are returned as a list oftuples of the file paths.'''
@@ -39,7 +38,6 @@ def group_exact_pairs(dataset_path: str) -> list[tuple[str, str]]:
 ########################################################
 ####            Atomworks transforms               #####
 ########################################################
-
 class TestInputData(Transform):
     """Verifies the input data is valid."""
 
@@ -360,7 +358,6 @@ def build_feature_dict(data: dict, feat_dict_key_name: str) -> dict:
         # Canonical PDB atom name:
         chain_dict["atom_name"] = chain_array.atom_name
         chain_dict["atom_name_feat"] = torch.from_numpy(chain_array.atom_name_feat).unsqueeze(0)
-        
 
         # Add chain to the feature dictionary:
         feat_dict[str(chain_id)] = chain_dict
@@ -424,11 +421,12 @@ def add_to_manifest(manifest_path: str, json_dict: dict) -> None:
         f.write(json.dumps(json_dict) + "\n")
     return None
 
-def process_dimer(args: tuple[tuple[str, str], str, bool]) -> dict:
+def process_dimer(args: tuple[tuple[str, str], str, bool, list[str]]) -> dict:
     """Extract the feature dictionary for a multimer in cif_file and save it to a torch .pt file at output_path."""
     chain_files = args[0]
     output_path = args[1]
     backbone_only = args[2]
+    val_sampling_ids = args[3]
 
     chain_files = [pl.Path(chain_file) for chain_file in chain_files]
     output_path = pl.Path(output_path)
@@ -456,7 +454,13 @@ def process_dimer(args: tuple[tuple[str, str], str, bool]) -> dict:
 
     feature_dict = out_data["feat_dict"]
 
-    out_file = files_path / f"{chain_files[0].stem.split('_')[0]}.pt"
+    # Adds protein id to each chain dict in the feature dict.
+    # Note that adding data except chain dicts to the feature dict is not supported and will lead to errors:
+    protein_id = chain_files[0].stem.split('_')[0]
+    for _, chain_dict in feature_dict.items():
+        chain_dict["protein_id"] = protein_id
+
+    out_file = files_path / f"{protein_id}.pt"
     save_feature_dict(feature_dict, out_file)
 
     split = np.random.choice(["train", "val"], p=[0.9, 0.1])
@@ -467,10 +471,17 @@ def process_dimer(args: tuple[tuple[str, str], str, bool]) -> dict:
         "sequence_lengths": [len(feature_dict[chain_id]["sequence"]) for chain_id in chain_ids],
         "backbone_only": backbone_only,
         "split": split,
+        "val_sampling": protein_id in val_sampling_ids,
     }
     return out_json
 
-def process_dataset(dataset_path: str, output_path: str, N_workers: int = 1, backbone_only: bool = True) -> None:
+def process_dataset(
+    dataset_path: str,
+    output_path: str,
+    N_workers: int = 1,
+    backbone_only: bool = True,
+    val_sampling_ids: list[str] = []
+    ) -> None:
     """Extracts the feature dict for each dimer from all pdb files in dataset_path dir and saves dimer feats. to output_path dir as .pt files."""
     # Convert N_workers to int in case it's passed as a string from command line:
     N_workers = int(N_workers)
@@ -484,7 +495,7 @@ def process_dataset(dataset_path: str, output_path: str, N_workers: int = 1, bac
         manifest_path.unlink()
 
     dimer_files = group_exact_pairs(dataset_path)
-    args = [(dimer_pair, output_path, backbone_only) for dimer_pair in dimer_files]
+    args = [(dimer_pair, output_path, backbone_only, val_sampling_ids) for dimer_pair in dimer_files]
 
     print(f"Starting to process {len(args)} dimers with {N_workers} workers...")
     if backbone_only:
