@@ -34,3 +34,10 @@ scheduler:
   min_lr: 1e-6
   max_lr: ${..optimizer.lr}
   warmup_steps: 5000
+
+sampler:
+  _target_: custom.model.sampling.EulerSampler
+  _partial_: true
+  num_timesteps: 500
+  t_start: 1e-4
+  t_end: 1.0

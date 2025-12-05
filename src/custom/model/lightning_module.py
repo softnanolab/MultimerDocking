@@ -42,6 +42,7 @@ class DockingModel(pl.LightningModule):
             interpolant,
             optimizer,
             scheduler,
+            sampler,
     ):
         super().__init__()
         
@@ -69,24 +70,41 @@ class DockingModel(pl.LightningModule):
         self.optimizer = optimizer
         self.scheduler = scheduler
 
+        self.sampler = sampler(model=self, multiplicity=self.multiplicity)
+
+    def configure_optimizers(self):
+        # Exclude ESM model parameters since they're frozen:
+        trainable_params = [p for p in self.parameters() if p.requires_grad]
+        optimizer = self.optimizer(params=trainable_params)
+        if self.scheduler is not None:
+            scheduler = self.scheduler(optimizer=optimizer)
+            return {
+                "optimizer": optimizer,
+                "lr_scheduler": {
+                    "scheduler": scheduler,
+                    "interval": "step",
+                    "frequency": 1,
+                },
+            }
+        return {"optimizer": optimizer}
+    
     def forward(self, t, feats):
         return self.architecture(t, feats)
+
+    @torch.no_grad()
+    def on_after_batch_transfer(self, batch, dataloader_idx):
+        """
+        Performs GPU transformations on the batch of all dataloaders.
+        """
+        batch = scale_coords(batch, self.scale_true_coords, self.scale_ref_coords)
+        batch = calculate_esm_embedding(batch, self.esm_model, self.esm_alphabet, self.esm_layers)
+        batch = center_and_rotate_chains(batch, multiplicity=self.multiplicity, device=self.device) # Adds augmented coords for each chain independently
+        return batch
     
     def _shared_step(self, batch, batch_idx):
         with torch.no_grad():
-
-            batch = scale_coords(batch, self.scale_true_coords, self.scale_ref_coords)
-
-            # ESM embedding:
-            batch = calculate_esm_embedding(batch, self.esm_model, self.esm_alphabet, self.esm_layers)
-            
-            # Adds augmented coords for each chain independently which are centered and randomly rotated from the true coords:
-            batch = center_and_rotate_chains(batch, multiplicity=self.multiplicity, device=self.device) 
-
-            # Prepare dimer features for forward pass:
             assert len(batch) == 1, "ERROR: Only one dimer per GPU allowed."
             dimer_feat_dict = batch[0]
-
             dimer_feat_dict = prepare_input_features(dimer_feat_dict, self.multiplicity, device=self.device)
 
             # Sample timesteps:
@@ -110,6 +128,10 @@ class DockingModel(pl.LightningModule):
 
         loss = F.mse_loss(v_predicted, v_target)
         return loss
+    
+    def on_train_epoch_start(self):
+        print(f"Starting training epoch {self.current_epoch}")
+        print(f"Multiplicity: {self.multiplicity}")
 
     def training_step(self, batch, batch_idx):
         loss = self._shared_step(batch, batch_idx)
@@ -128,22 +150,14 @@ class DockingModel(pl.LightningModule):
 
         return loss
 
-    def configure_optimizers(self):
-        # Exclude ESM model parameters since they're frozen:
-        trainable_params = [p for p in self.parameters() if p.requires_grad]
-        optimizer = self.optimizer(params=trainable_params)
-        if self.scheduler is not None:
-            scheduler = self.scheduler(optimizer=optimizer)
-            return {
-                "optimizer": optimizer,
-                "lr_scheduler": {
-                    "scheduler": scheduler,
-                    "interval": "step",
-                    "frequency": 1,
-                },
-            }
-        return {"optimizer": optimizer}
-
-    def on_train_epoch_start(self):
-        print(f"Starting training epoch {self.current_epoch}")
-        print(f"Multiplicity: {self.multiplicity}")
+    # def on_validation_epoch_end(self):
+    #     # Run validation sampling
+    #     pass
+    
+    # @torch.no_grad()
+    # def _validation_sampling(self, batch, batch_idx):
+    #     """
+    #     """
+    #     assert len(batch) == 1, "ERROR: Only one dimer per GPU allowed."
+    #     dimer_feat_dict = batch[0]
+    #     dimer_feat_dict = prepare_input_features(dimer_feat_dict, self.multiplicity, device=self.device)
