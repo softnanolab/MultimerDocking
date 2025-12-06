@@ -148,21 +148,16 @@ class DockingModel(pl.LightningModule):
         return loss
     
     @torch.no_grad()
-    def validation_step(self, batch, batch_idx, dataloader_idx: int = 0):
+    def validation_step(self, batch, batch_idx):
         # Validation loss:
-        if dataloader_idx == 0:
-            loss = self._shared_step(batch, batch_idx)
-            self.log("val/loss", loss, on_step=False, on_epoch=True, prog_bar=True, logger=True, sync_dist=True, batch_size=len(batch)*self.multiplicity, add_dataloader_idx=False)
-            return loss
-        # Validation sampling:
-        elif dataloader_idx == 1:
-            self._validation_sampling(batch, batch_idx)
-            return None
+        loss = self._shared_step(batch, batch_idx)
+        self.log("val/loss", loss, on_step=False, on_epoch=True, prog_bar=True, logger=True, sync_dist=True, batch_size=len(batch)*self.multiplicity, add_dataloader_idx=False)
+        return loss
     
     @torch.no_grad()
-    def _validation_sampling(self, batch, batch_idx):
+    def _sampling(self, batch, batch_idx):
         """
-        Runs validation sampling on a single batch (dimer).
+        Runs sampling on a batch of length 1, i.e. (one dimer per GPU).
         """
         multiplicity = 1
         batch = center_and_rotate_chains(batch, multiplicity=multiplicity, device=self.device) # Adds augmented coords for each chain independently

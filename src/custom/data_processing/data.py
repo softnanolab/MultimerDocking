@@ -72,11 +72,11 @@ def val_filter(entry: dict) -> bool:
     else:
         return False
 
-def val_sampling_filter(entry: dict) -> bool:
+def test_filter(entry: dict) -> bool:
     """
-    Filters entries by whether they are in the validation sampling set.
+    Filters entries by whether they are in the test set.
     """
-    if entry["val_sampling"] == True:
+    if entry["split"] == "test":
         return True
     else:
         return False

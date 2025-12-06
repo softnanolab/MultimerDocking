@@ -4,5 +4,3 @@ defaults:
 
 N_workers: 16
 backbone_only: True
-
-val_sampling_ids: ["A0A421JG00", "A0A3M7AK00", "A0A6A6KY00"]

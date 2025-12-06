@@ -18,13 +18,13 @@ def train(cfg: DictConfig):
 
     train_dataloader = instantiate(cfg.data.train_dataloader)
     val_dataloader = instantiate(cfg.data.val_dataloader)
-    val_sampling_dataloader = instantiate(cfg.data.val_sampling_dataloader)
+    # test_dataloader = instantiate(cfg.data.test_dataloader)
     
     trainer = instantiate(cfg.trainer)
     trainer.fit(
         model,
         train_dataloaders=train_dataloader,
-        val_dataloaders=[val_dataloader, val_sampling_dataloader]
+        val_dataloaders=val_dataloader,
     )
 
 @hydra.main(
