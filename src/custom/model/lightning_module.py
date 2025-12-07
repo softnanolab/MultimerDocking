@@ -73,7 +73,7 @@ class DockingModel(pl.LightningModule):
         self.optimizer = optimizer
         self.scheduler = scheduler
 
-        self.sampler = sampler(model=self, multiplicity=self.multiplicity)
+        self.sampler = sampler(model=self)
 
         self.backbone_only = backbone_only
 
@@ -179,7 +179,7 @@ class DockingModel(pl.LightningModule):
     @torch.no_grad()
     def test_step(self, batch, batch_idx):
 
-        pred_coords = self.sample(batch, batch_idx) # (B, N_atoms_full_dimer, 3)
+        pred_coords = self.predict(batch, batch_idx) # (B, N_atoms_full_dimer, 3)
 
         assert len(batch) == 1, "ERROR: Only one dimer per GPU allowed."
         dimer_feat_dict = batch[0]
@@ -199,7 +199,7 @@ class DockingModel(pl.LightningModule):
     
 
     @torch.no_grad()
-    def sample(self, batch, batch_idx):
+    def predict(self, batch, batch_idx):
         """
         Runs sampling on a batch of length 1, i.e. (one dimer per GPU).
         """
@@ -207,27 +207,39 @@ class DockingModel(pl.LightningModule):
         batch = center_and_rotate_chains(batch, multiplicity=multiplicity, device=self.device) # Adds augmented coords for each chain independently
         assert len(batch) == 1, "ERROR: Only one dimer per GPU allowed."
         dimer_feat_dict = batch[0]
-        multiplicity = 1
+
         dimer_feat_dict = prepare_input_features(dimer_feat_dict, multiplicity, device=self.device)
-        dimer_feat_dict = self.sampler.sample(dimer_feat_dict)
+        dimer_feat_dict = self.sampler.sample(dimer_feat_dict, multiplicity)
 
         root_dir = self.trainer.default_root_dir
         protein_id = list(dimer_feat_dict.values())[0]["protein_id"]
-        file = f"{root_dir}/samples/{protein_id}.cif"
+        file = f"{root_dir}/samples/{protein_id}_pred.cif"
+        file_true = f"{root_dir}/samples/{protein_id}_true.cif"
 
         chain_coords = []
         chain_ids = []
         seqs = []
         for chain_id, chain_dict in dimer_feat_dict.items():
-            chain_coords.extend([chain_dict["final_sampled_coords"], chain_dict["true_coords"]])
-            chain_ids.extend(["Pred_" + chain_id, "True_" + chain_id])
-            seqs.extend([chain_dict["sequence"], chain_dict["sequence"]])
-
+            chain_coords.append(chain_dict["final_sampled_coords"])
+            chain_ids.append(chain_id) # IMPORTANT: Biotite only supports 4 letter chain_ids.
+            seqs.append(chain_dict["sequence"]) 
         cif_from_tensor(
             chain_coords,
             chain_ids,
             seqs,
             file,
+            backbone_only=self.backbone_only,
+            scale=self.scale_true_coords
+        )
+
+        chain_coords_true = []
+        for chain_id, chain_dict in dimer_feat_dict.items():
+            chain_coords_true.append(chain_dict["true_coords"])
+        cif_from_tensor(
+            chain_coords_true,
+            chain_ids,
+            seqs,
+            file_true,
             backbone_only=self.backbone_only,
             scale=self.scale_true_coords
         )

@@ -31,7 +31,7 @@ def cif_from_tensor(chain_coords: list[torch.Tensor],
     Inputs:
     - chain_coords: list[torch.Tensor], each tensor is (1, N_atoms, 3). N_atoms can vary between chains.
     - chain_ids: list[str] of chain_ids
-    - seqs: list[str] of one-letter amino acid sequences, one string per chain
+    - seqs: list[str] of one-letter amino acid sequences of the chains, one seq string per chain
     - file: str, the path to the output CIF file
     - backbone_only: bool, set to True if the tensors contain only the backbone atoms (N,CA,C,O)
     - scale: float, coordinates are multiplied by this factor.
@@ -101,4 +101,5 @@ def cif_from_tensor(chain_coords: list[torch.Tensor],
     save_path = str(file.with_suffix(".cif"))
     save_structure(save_path, atom_array)
     print(f"Saved {save_path}")
+    
     return None

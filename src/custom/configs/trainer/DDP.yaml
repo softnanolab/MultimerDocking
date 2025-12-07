@@ -4,7 +4,7 @@ default_root_dir: ./artifacts
 deterministic: False
 
 accelerator: gpu
-devices: 4 # auto
+devices: auto # 4
 strategy: 
   _target_: lightning.pytorch.strategies.DDPStrategy
   find_unused_parameters: True
@@ -21,7 +21,7 @@ max_steps: 400000
 logger:
   - _target_: lightning.pytorch.loggers.WandbLogger
     project: docking_model
-    # name: ${hydra:job.name}
+    # name: ${oc.env:PWD##*/} # name the run by the current directory name
     save_dir: ${trainer.default_root_dir}/logger
     log_model: False
 
