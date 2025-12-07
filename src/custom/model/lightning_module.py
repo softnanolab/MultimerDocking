@@ -7,11 +7,12 @@ import torch.nn.functional as F
 import lightning.pytorch as pl
 
 # custom imports:
-from custom.model.pLM import esm_model_dict, calculate_esm_embedding
+from custom.model.pLM import calculate_esm_embedding
 from custom.data_processing.data import (
     center_and_rotate_chains,
     prepare_input_features,
     scale_coords,
+    reverse_scale_coords,
     extract_full_dimer_coords,
     merge_chains,
     split_chains,
@@ -44,6 +45,7 @@ class DockingModel(pl.LightningModule):
             scheduler,
             sampler,
             backbone_only,
+            test_rmsd = None,
     ):
         super().__init__()
         
@@ -75,6 +77,9 @@ class DockingModel(pl.LightningModule):
 
         self.backbone_only = backbone_only
 
+        self.test_rmsd = test_rmsd # MeanRMSD object from custom.utils.benchmarking
+
+
     def configure_optimizers(self):
         # Exclude ESM model parameters since they're frozen:
         trainable_params = [p for p in self.parameters() if p.requires_grad]
@@ -91,8 +96,20 @@ class DockingModel(pl.LightningModule):
             }
         return {"optimizer": optimizer}
     
+
+    def on_fit_start(self):
+        assert self.trainer.world_size == 4, "ERROR: 4 gpus enforced."
+        print(
+            f"[global_rank={self.global_rank}] "
+            f"device={self.device}, "
+            f"world_size={self.trainer.world_size}",
+            flush=True,
+        )
+
+
     def forward(self, t, feats):
         return self.architecture(t, feats)
+
 
     @torch.no_grad()
     def on_after_batch_transfer(self, batch, dataloader_idx):
@@ -104,6 +121,7 @@ class DockingModel(pl.LightningModule):
         batch = calculate_esm_embedding(batch, self.esm_model, self.esm_alphabet, self.esm_layers)
         return batch
     
+
     def _shared_step(self, batch, batch_idx):
         with torch.no_grad():
             batch = center_and_rotate_chains(batch, multiplicity=self.multiplicity, device=self.device) # Adds augmented coords for each chain independently
@@ -133,9 +151,11 @@ class DockingModel(pl.LightningModule):
         loss = F.mse_loss(v_predicted, v_target)
         return loss
     
+
     def on_train_epoch_start(self):
         print(f"Starting training epoch {self.current_epoch}")
         print(f"Multiplicity: {self.multiplicity}")
+
 
     def training_step(self, batch, batch_idx):
         loss = self._shared_step(batch, batch_idx)
@@ -147,6 +167,7 @@ class DockingModel(pl.LightningModule):
 
         return loss
     
+
     @torch.no_grad()
     def validation_step(self, batch, batch_idx):
         # Validation loss:
@@ -154,8 +175,31 @@ class DockingModel(pl.LightningModule):
         self.log("val/loss", loss, on_step=False, on_epoch=True, prog_bar=True, logger=True, sync_dist=True, batch_size=len(batch)*self.multiplicity, add_dataloader_idx=False)
         return loss
     
+
     @torch.no_grad()
-    def _sampling(self, batch, batch_idx):
+    def test_step(self, batch, batch_idx):
+
+        pred_coords = self.sample(batch, batch_idx) # (B, N_atoms_full_dimer, 3)
+
+        assert len(batch) == 1, "ERROR: Only one dimer per GPU allowed."
+        dimer_feat_dict = batch[0]
+        true_coords = merge_chains(dimer_feat_dict, "true_coords") # (B, N_atoms_full_dimer, 3)
+
+        self.test_rmsd.update(pred_coords*self.scale_true_coords, true_coords*self.scale_true_coords)
+
+        self.log(
+            "test/rmsd(A)",
+            self.test_rmsd,
+            on_step=False,
+            on_epoch=True,
+            prog_bar=True,
+            sync_dist=True,
+        )
+        return None
+    
+
+    @torch.no_grad()
+    def sample(self, batch, batch_idx):
         """
         Runs sampling on a batch of length 1, i.e. (one dimer per GPU).
         """
@@ -169,15 +213,15 @@ class DockingModel(pl.LightningModule):
 
         root_dir = self.trainer.default_root_dir
         protein_id = list(dimer_feat_dict.values())[0]["protein_id"]
-        file = f"{root_dir}/validation_sampling/val_sample_step-{self.global_step}/{protein_id}.cif"
+        file = f"{root_dir}/samples/{protein_id}.cif"
 
         chain_coords = []
         chain_ids = []
         seqs = []
         for chain_id, chain_dict in dimer_feat_dict.items():
-            chain_coords.append(chain_dict["final_sampled_coords"])
-            chain_ids.append(chain_id)
-            seqs.append(chain_dict["sequence"])
+            chain_coords.extend([chain_dict["final_sampled_coords"], chain_dict["true_coords"]])
+            chain_ids.extend(["Pred_" + chain_id, "True_" + chain_id])
+            seqs.extend([chain_dict["sequence"], chain_dict["sequence"]])
 
         cif_from_tensor(
             chain_coords,
@@ -187,4 +231,6 @@ class DockingModel(pl.LightningModule):
             backbone_only=self.backbone_only,
             scale=self.scale_true_coords
         )
-        return None
+
+        pred_coords = merge_chains(dimer_feat_dict, "final_sampled_coords") # (B, N_atoms_full_dimer, 3)
+        return pred_coords

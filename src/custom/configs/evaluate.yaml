@@ -1,0 +1,13 @@
+defaults:
+  - paths
+  - /lightning_module: docking_module
+  - /lightning_module/architecture: dockingdit_100M
+  - /data: AFDDI
+  - /trainer: DDP
+  - _self_
+  
+seed: 57
+
+lightning_module:
+  test_rmsd:
+    _target_: custom.utils.benchmarking.MeanRMSD

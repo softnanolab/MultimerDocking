@@ -2,3 +2,5 @@ paths:
   AFDDI_manifest: /projects/u5dp/Erik_data/AFDDI/testing/processed/manifest.jsonl
   AFDDI_dataset: /projects/u5dp/Erik_data/AFDDI/testing/raw/00
   AFDDI_output: /projects/u5dp/Erik_data/AFDDI/testing/processed
+
+  model_checkpoint: /projects/u5dp/Erik/dock/training/jobs/2025-12-06_1/artifacts/checkpoints/best_val_loss-14000.ckpt

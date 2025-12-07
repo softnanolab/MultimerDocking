@@ -4,15 +4,20 @@ default_root_dir: ./artifacts
 deterministic: False
 
 accelerator: gpu
-devices: auto
+devices: 4 # auto
 strategy: 
   _target_: lightning.pytorch.strategies.DDPStrategy
   find_unused_parameters: True
   gradient_as_bucket_view: True
+  cluster_environment:
+    _target_: lightning.pytorch.plugins.environments.LightningEnvironment
+
+
+
 num_nodes: 1
 precision: bf16-mixed
-accumulate_grad_batches: 4
-max_steps: 100000
+accumulate_grad_batches: 1 # 4 if only 1 gpu
+max_steps: 400000
 logger:
   - _target_: lightning.pytorch.loggers.WandbLogger
     project: docking_model
@@ -23,10 +28,9 @@ logger:
 
 num_sanity_val_steps: 0 # Num of sanity check validation_steps to run before training starts
 
-
 # Validation and checkpointing:
 check_val_every_n_epoch: null
-val_check_interval: 500 # counts number of training batches
+val_check_interval: 1000 # counts number of training batches
 enable_checkpointing: True
 callbacks:
   - _target_: lightning.pytorch.callbacks.ModelCheckpoint

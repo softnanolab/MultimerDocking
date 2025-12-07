@@ -31,6 +31,7 @@ class Filter:
             results.append(filter_fn(entry))
         return all(results)
 
+
 def max_combined_sequence_length(entry: dict, N_max: int) -> bool:
     """
     Filters entries by combined sequence length.
@@ -43,6 +44,7 @@ def max_combined_sequence_length(entry: dict, N_max: int) -> bool:
     else:
         return False
 
+
 def min_individual_sequence_length(entry: dict, N_min: int) -> bool:
     """
     Filters entries by individual sequence length.
@@ -54,6 +56,7 @@ def min_individual_sequence_length(entry: dict, N_min: int) -> bool:
             return False
     return True
 
+
 def train_filter(entry: dict) -> bool:
     """
     Filters entries by whether they are in the train set.
@@ -62,6 +65,7 @@ def train_filter(entry: dict) -> bool:
         return True
     else:
         return False
+
 
 def val_filter(entry: dict) -> bool:
     """
@@ -72,6 +76,7 @@ def val_filter(entry: dict) -> bool:
     else:
         return False
 
+
 def test_filter(entry: dict) -> bool:
     """
     Filters entries by whether they are in the test set.
@@ -80,6 +85,7 @@ def test_filter(entry: dict) -> bool:
         return True
     else:
         return False
+
 
 def filter_data(manifest_path: str, Filter: Filter = None) -> list[str]:
     """
@@ -125,6 +131,7 @@ class AFDDI_Dataset(torch.utils.data.Dataset):
         sample = torch.load(path, weights_only=False)
         return sample
 
+
 def AFDDI_collate_fn(batch):
     """
     Collate function for AFDDI dataset.
@@ -145,6 +152,18 @@ def scale_coords(batch, scale_true_coords, scale_ref_coords):
             chain_dict["ref_pos"] = chain_dict["ref_pos"] / scale_ref_coords
     return batch
 
+
+def reverse_scale_coords(batch, scale_true_coords, scale_ref_coords):
+    """
+    Reverse scales the true and reference coordinates by the given scale factors.
+    """
+    for feat_dict in batch:
+        for chain_dict in feat_dict.values():
+            chain_dict["true_coords"] = chain_dict["true_coords"] * scale_true_coords
+            chain_dict["ref_pos"] = chain_dict["ref_pos"] * scale_ref_coords
+    return batch
+
+
 def center_and_rotate_chains(batch, multiplicity: int, device: torch.device):
     """
     Adds augmented coords as "augmented_coords" in the chain dicts which are independently centered and randomly rotated chains coords.
@@ -164,6 +183,7 @@ def center_and_rotate_chains(batch, multiplicity: int, device: torch.device):
             
             chain_dict["augmented_coords"] = augmented_coords
     return batch
+
 
 def prepare_input_features(dimer_feat_dict, multiplicity: int, device: torch.device):
     """
@@ -196,6 +216,7 @@ def prepare_input_features(dimer_feat_dict, multiplicity: int, device: torch.dev
         
     return dimer_feat_dict
 
+
 def merge_chains(dimer_feat_dict, key: str):
     """
     Concatenates the atom feature specified by key of the chain_dicts together along the atom_dim in the order the chains appear in the dimer_feat_dict.
@@ -204,6 +225,7 @@ def merge_chains(dimer_feat_dict, key: str):
     """
     concatenated_tensor = torch.cat([chain_dict[key] for chain_dict in dimer_feat_dict.values()], dim=1) # (B, N_atoms_A + N_atoms_B, *)
     return concatenated_tensor
+
 
 def split_chains(dimer_feat_dict, key, concatenated_tensor):
     """
@@ -217,6 +239,7 @@ def split_chains(dimer_feat_dict, key, concatenated_tensor):
         chain_dict[key] = concatenated_tensor[:, offset:offset+N_atoms, ...]
         offset += N_atoms
     return dimer_feat_dict
+
 
 def extract_full_dimer_coords(dimer_feat_dict, device: torch.device):
     """
