@@ -4,20 +4,18 @@ default_root_dir: ./artifacts
 deterministic: False
 
 accelerator: gpu
-devices: auto # 4
+devices: 4 # 4 devices per node
 strategy: 
   _target_: lightning.pytorch.strategies.DDPStrategy
   find_unused_parameters: True
   gradient_as_bucket_view: True
-  cluster_environment:
+  cluster_environment: # necessary to set on jupyter hub
     _target_: lightning.pytorch.plugins.environments.LightningEnvironment
-
-
 
 num_nodes: 1
 precision: bf16-mixed
 accumulate_grad_batches: 1 # 4 if only 1 gpu
-max_steps: 400000
+max_steps: 20000000
 logger:
   - _target_: lightning.pytorch.loggers.WandbLogger
     project: docking_model
@@ -25,13 +23,13 @@ logger:
     save_dir: ${trainer.default_root_dir}/logger
     log_model: False
 
-
 num_sanity_val_steps: 0 # Num of sanity check validation_steps to run before training starts
 
-# Validation and checkpointing:
+# Validation steps:
 check_val_every_n_epoch: null
 val_check_interval: 1000 # counts number of training batches
 enable_checkpointing: True
+
 callbacks:
   - _target_: lightning.pytorch.callbacks.ModelCheckpoint
     dirpath: ${trainer.default_root_dir}/checkpoints
@@ -42,6 +40,16 @@ callbacks:
     save_last: False
     save_on_train_epoch_end: False
     auto_insert_metric_name: False
+
+# Early stopping:
+  - _target_: lightning.pytorch.callbacks.EarlyStopping
+    monitor: "val/loss"
+    mode: "min"
+    patience: 40  # Number of validation checks to wait (patience * val_check_interval = optimizer steps to wait before stopping)
+    min_delta: 0.0  # Minimum change to qualify as an improvement
+    check_on_train_epoch_end: False  # Check after validation, not after training epoch
+    verbose: True
+    strict: True  # Raise error if monitored metric is not found
 
 # Checkpointing every n steps:
   - _target_: lightning.pytorch.callbacks.ModelCheckpoint

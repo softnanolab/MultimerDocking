@@ -1,6 +1,8 @@
 paths:
-  AFDDI_manifest: /projects/u5dp/Erik_data/AFDDI/testing/processed/manifest.jsonl
-  AFDDI_dataset: /projects/u5dp/Erik_data/AFDDI/testing/raw/00
-  AFDDI_output: /projects/u5dp/Erik_data/AFDDI/testing/processed
+  AFDDI_manifest: /projects/u5dp/Erik_data/AFDDI/processed/manifest.jsonl
+  AFDDI_dataset: /projects/u5dp/Erik_data/AFDDI/AFDB_DDI/dompdbs
+  AFDDI_output: /projects/u5dp/Erik_data/AFDDI/processed
+  AFDDI_split_json: /projects/u5dp/Erik_data/AFDDI/AFDB_DDI/mint_index.json
 
-  model_checkpoint: /projects/u5dp/Erik/dock/training/jobs/2025-12-06_1/artifacts/checkpoints/best_val_loss-14000.ckpt
+  model_checkpoint_testing: /projects/u5dp/Erik/dock/training/jobs/2_nodes_full_13-12-2025/artifacts/checkpoints/best_val_loss-93000.ckpt
+  model_checkpoint_training: /projects/u5dp/Erik/dock/training/jobs/2_nodes_full_13-12-2025/artifacts/checkpoints/last.ckpt # None for training from scratch

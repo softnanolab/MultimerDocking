@@ -98,7 +98,7 @@ class DockingModel(pl.LightningModule):
     
 
     def on_fit_start(self):
-        assert self.trainer.world_size == 4, "ERROR: 4 gpus enforced."
+        # assert self.trainer.world_size == 4, "ERROR: 4 gpus enforced."
         print(
             f"[global_rank={self.global_rank}] "
             f"device={self.device}, "
@@ -141,7 +141,7 @@ class DockingModel(pl.LightningModule):
             z = torch.randn_like(x_1) # (B, N_atoms_A + N_atoms_B, 3)
             x_t = self.interpolant.compute_x_t(t.view(-1, 1, 1), x_0, x_1, z) # (B, N_atoms_A + N_atoms_B, 3)
 
-            dimer_feat_dict = split_chains(dimer_feat_dict, "augmented_coords", x_t)
+            dimer_feat_dict = split_chains(dimer_feat_dict, "noised_coords", x_t)
 
         # Forward pass:
         dimer_feat_dict = self.forward(t, dimer_feat_dict)
@@ -186,7 +186,7 @@ class DockingModel(pl.LightningModule):
         true_coords = merge_chains(dimer_feat_dict, "true_coords") # (B, N_atoms_full_dimer, 3)
 
         self.test_rmsd.update(pred_coords*self.scale_true_coords, true_coords*self.scale_true_coords)
-
+        
         self.log(
             "test/rmsd(A)",
             self.test_rmsd,
@@ -208,7 +208,11 @@ class DockingModel(pl.LightningModule):
         assert len(batch) == 1, "ERROR: Only one dimer per GPU allowed."
         dimer_feat_dict = batch[0]
 
+        embedding_present = all("pLM_emb" in chain_dict for chain_dict in dimer_feat_dict.values())
+        assert embedding_present, "ERROR: pLM embedding not present in the chain dictionary."
+
         dimer_feat_dict = prepare_input_features(dimer_feat_dict, multiplicity, device=self.device)
+
         dimer_feat_dict = self.sampler.sample(dimer_feat_dict, multiplicity)
 
         root_dir = self.trainer.default_root_dir

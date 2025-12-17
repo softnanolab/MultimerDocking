@@ -2,6 +2,7 @@
 Script to evaluate the trained model on the test set.
 """
 
+import torch
 from pathlib import Path
 import hydra
 import lightning.pytorch as pl
@@ -15,10 +16,14 @@ def evaluate(cfg: DictConfig):
     seed = cfg.get("seed", 57)
     pl.seed_everything(seed, workers=True)
 
+    torch.set_float32_matmul_precision("medium") # for faster execution on tensor cores
+
+
     model = instantiate(cfg.lightning_module)
     test_dataloader = instantiate(cfg.data.test_dataloader)
     trainer = instantiate(cfg.trainer)
-    trainer.test(model, dataloaders=test_dataloader, ckpt_path=cfg.paths.model_checkpoint)
+    trainer.test(model, dataloaders=test_dataloader, ckpt_path=cfg.paths.model_checkpoint_testing)
+
 
 @hydra.main(
     version_base="1.3",

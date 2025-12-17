@@ -20,9 +20,10 @@ config_path = repo_dir / "custom" / "configs"
 def main(cfg: DictConfig):
     dataset_path = cfg.paths.AFDDI_dataset
     output_path = cfg.paths.AFDDI_output
+    split_json_path = cfg.paths.AFDDI_split_json
     N_workers = cfg.N_workers
     backbone_only = cfg.backbone_only
-    process_dataset(dataset_path, output_path, N_workers, backbone_only)
+    process_dataset(dataset_path, output_path, split_json_path, N_workers, backbone_only)
 
 if __name__ == "__main__":
     main()

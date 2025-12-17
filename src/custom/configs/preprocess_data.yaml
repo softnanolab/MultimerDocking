@@ -2,5 +2,5 @@ defaults:
   - paths
   - _self_
 
-N_workers: 16
+N_workers: 32
 backbone_only: True

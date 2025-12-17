@@ -7,6 +7,7 @@ import hydra
 import lightning.pytorch as pl
 from omegaconf import DictConfig
 from hydra.utils import instantiate
+import torch
 
 repo_dir = Path(__file__).resolve().parents[2]
 config_path = repo_dir / "custom" / "configs"
@@ -14,14 +15,22 @@ config_path = repo_dir / "custom" / "configs"
 def train(cfg: DictConfig):
     seed = cfg.get("seed", 57)
     pl.seed_everything(seed, workers=True)
+
+    torch.set_float32_matmul_precision("medium") # for faster training on tensor cores
     
     model = instantiate(cfg.lightning_module)
 
     train_dataloader = instantiate(cfg.data.train_dataloader)
     val_dataloader = instantiate(cfg.data.val_dataloader)
-    # test_dataloader = instantiate(cfg.data.test_dataloader)
     
     trainer = instantiate(cfg.trainer)
+
+    # trainer.fit(
+    #     model,
+    #     train_dataloaders=train_dataloader,
+    #     val_dataloaders=val_dataloader,
+    #     ckpt_path=cfg.paths.model_checkpoint_training, # continue training from a checkpoint
+    # )
 
     trainer.fit(
         model,

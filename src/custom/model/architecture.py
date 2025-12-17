@@ -344,7 +344,7 @@ class DockingDiT(nn.Module):
 
         - feats: dict of feature dicts for each chain:
             - chain_feature_dict[chain_id_1]:
-                - augmented_coords: tensor (B, N_atoms, 3). Augmented coordinates for the current time step t.
+                - noised_coords: tensor (B, N_atoms, 3). Noised coordinates for the current time step t.
                 - pLM_emb: tensor (B, N_r, pLM_num_layers, d_e). Embedding of ESM-2 from input + pLM_num_layers layers.
                 - sequence_length: tensor (B,). Length of the sequence per batch element.
                 - res_id: tensor (B, N_atoms, 1). Per atom residue ID.
@@ -388,13 +388,13 @@ class DockingDiT(nn.Module):
             chain_RoPE_pos = torch.cat(
             [
             chain_feats["res_id"],
-            chain_feats["ref_pos"],
+            chain_feats["noised_coords"], # additionally condition on the noised coordinates as self-conditioning to retain monomer structures
             ], dim=-1) # (B, N_atoms, 4)
             chains_RoPE_pos.append(chain_RoPE_pos)
 
             # Encoding:
             chain_encoding = self.encoder(
-                atom_coords=chain_feats["augmented_coords"], # (B, N_atoms, 3)
+                atom_coords=chain_feats["noised_coords"], # (B, N_atoms, 3)
                 chain_feats=chain_feats,
                 adaLN_emb=chain_adaLN_emb, # (B, d_a)
                 RoPE_pos=chain_RoPE_pos, # (B, N_atoms, 4)
