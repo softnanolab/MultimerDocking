@@ -388,7 +388,7 @@ class DockingDiT(nn.Module):
             chain_RoPE_pos = torch.cat(
             [
             chain_feats["res_id"],
-            chain_feats["noised_coords"], # additionally condition on the noised coordinates as self-conditioning to retain monomer structures
+            chain_feats["ref_pos"], # additionally condition on the noised coordinates as self-conditioning to retain monomer structures
             ], dim=-1) # (B, N_atoms, 4)
             chains_RoPE_pos.append(chain_RoPE_pos)
 
