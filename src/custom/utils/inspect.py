@@ -10,12 +10,38 @@ import numpy as np
 import biotite.structure as struc
 from biotite.structure.info import residue as get_residue
 from biotite.structure.io import save_structure
+from biotite.structure.io.pdbx import CIFFile, set_structure
 
 
 aa_1_to_3 = {"A":"ALA","R":"ARG","N":"ASN","D":"ASP","C":"CYS","Q":"GLN","E":"GLU",
        "G":"GLY","H":"HIS","I":"ILE","L":"LEU","K":"LYS","M":"MET","F":"PHE",
        "P":"PRO","S":"SER","T":"THR","W":"TRP","Y":"TYR","V":"VAL",
        "U":"SEC","O":"PYL"}
+
+
+def _append_polymer_tables(cif_path: pathlib.Path, chain_ids: list[str], seqs: list[str]):
+    lines = ["\n#\n"]
+
+    lines.append("loop_\n_entity.id\n_entity.type\n")
+    for i in range(1, len(chain_ids) + 1):
+        lines.append(f"{i} polymer\n")
+
+    lines.append("loop_\n_entity_poly.entity_id\n_entity_poly.type\n_entity_poly.pdbx_strand_id\n")
+    for i, cid in enumerate(chain_ids, start=1):
+        lines.append(f"{i} 'polypeptide(L)' '{cid}'\n")
+
+    lines.append("loop_\n_struct_asym.id\n_struct_asym.entity_id\n")
+    for i, cid in enumerate(chain_ids, start=1):
+        lines.append(f"'{cid}' {i}\n")
+
+    lines.append("loop_\n_entity_poly_seq.entity_id\n_entity_poly_seq.num\n_entity_poly_seq.mon_id\n_entity_poly_seq.hetero\n")
+    for i, seq in enumerate(seqs, start=1):
+        for j, aa in enumerate(seq, start=1):
+            lines.append(f"{i} {j} {aa_1_to_3[aa]} n\n")
+
+    with open(cif_path, "a", encoding="utf-8") as f:
+        f.writelines(lines)
+
 
 def cif_from_tensor(chain_coords: list[torch.Tensor],
                     chain_ids: list[str],
@@ -39,6 +65,10 @@ def cif_from_tensor(chain_coords: list[torch.Tensor],
 
     N_total = sum(coords.shape[1] for coords in chain_coords)
     atom_array = struc.AtomArray(N_total)
+    
+    # Add annotations once before processing chains
+    atom_array.add_annotation("occupancy", dtype=np.float32)
+    atom_array.add_annotation("b_factor", dtype=np.float32)
 
     offset = 0
     # Iterate over chains:
@@ -49,12 +79,17 @@ def cif_from_tensor(chain_coords: list[torch.Tensor],
         xyz *= scale
 
         # Construct residue level quantities (depending on number of atoms in the residue):
-        seq_3 = [aa_1_to_3[aa] for aa in seq]
+        seq_3 = []
+        for aa in seq:
+            if aa not in aa_1_to_3:
+                raise ValueError(f"Unknown amino acid '{aa}' in sequence. Supported: {list(aa_1_to_3.keys())}")
+            seq_3.append(aa_1_to_3[aa])
+        
         res_id = []
         res_name = []
         atom_name = []
         element = []
-        i = 0
+        i = 1  # Start residue IDs at 1 (PDB convention)
         for res_code in seq_3:
             res = get_residue(res_code, allow_missing_coord=False)
 
@@ -66,7 +101,8 @@ def cif_from_tensor(chain_coords: list[torch.Tensor],
                 mask &= bb_mask
             res = res[mask]
 
-            res_id.append(res.res_id + i)
+            # res.res_id from get_residue is typically all 1s, so we set it to i
+            res_id.append(np.full(len(res), i))
             res_name.append(res.res_name)
             atom_name.append(res.atom_name)
             element.append(res.element)
@@ -83,9 +119,7 @@ def cif_from_tensor(chain_coords: list[torch.Tensor],
         atom_array.chain_id[offset:offset+N_atoms] = np.full(N_atoms, chain_id)
         atom_array.ins_code[offset:offset+N_atoms] = np.full(N_atoms, "")
         atom_array.hetero[offset:offset+N_atoms] = np.full(N_atoms, False)
-        atom_array.add_annotation("occupancy", dtype=np.float32)
         atom_array.occupancy[offset:offset+N_atoms] = np.full(N_atoms, 1.0)
-        atom_array.add_annotation("b_factor", dtype=np.float32)
         atom_array.b_factor[offset:offset+N_atoms] = np.full(N_atoms, 0.0)
 
         # Assign residue level quantities:
@@ -96,10 +130,13 @@ def cif_from_tensor(chain_coords: list[torch.Tensor],
         
         offset += N_atoms
 
+
     file = pathlib.Path(file).resolve()
     file.parent.mkdir(parents=True, exist_ok=True)
-    save_path = str(file.with_suffix(".cif"))
-    save_structure(save_path, atom_array)
-    print(f"Saved {save_path}")
-    
+    save_path = file.with_suffix(".cif")
+
+    save_structure(str(save_path), atom_array)
+    _append_polymer_tables(save_path, chain_ids, seqs)
+    print("Saved", save_path)
+
     return None

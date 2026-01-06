@@ -1,8 +1,8 @@
 paths:
-  AFDDI_manifest: /projects/u5dp/Erik_data/AFDDI/processed/manifest.jsonl
+  AFDDI_manifest: /projects/u5dp/Erik/dock/training/jobs/continue_selfcond_2/single_val_manifest.jsonl
   AFDDI_dataset: /projects/u5dp/Erik_data/AFDDI/AFDB_DDI/dompdbs
   AFDDI_output: /projects/u5dp/Erik_data/AFDDI/processed
   AFDDI_split_json: /projects/u5dp/Erik_data/AFDDI/AFDB_DDI/mint_index.json
 
-  model_checkpoint_testing: /projects/u5dp/Erik/dock/training/jobs/2_nodes_full_13-12-2025/artifacts/checkpoints/best_val_loss-93000.ckpt
-  model_checkpoint_training: /projects/u5dp/Erik/dock/training/jobs/2_nodes_full_13-12-2025/artifacts/checkpoints/last.ckpt # None for training from scratch
+  model_checkpoint_testing: /projects/u5dp/Erik/dock/training/jobs/continue_selfcond_2/artifacts/checkpoints/best_val_loss-186000.ckpt
+  model_checkpoint_training: /projects/u5dp/Erik/dock/training/jobs/4_nodes_selfConditioning/artifacts/checkpoints/best_val_loss-145000.ckpt

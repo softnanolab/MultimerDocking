@@ -4,7 +4,7 @@ default_root_dir: ./artifacts
 deterministic: False
 
 accelerator: gpu
-devices: 4 # 4 devices per node
+devices: 1 # 4 devices per node
 strategy: 
   _target_: lightning.pytorch.strategies.DDPStrategy
   find_unused_parameters: True
