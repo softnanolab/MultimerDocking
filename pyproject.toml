@@ -59,6 +59,7 @@ dev = [
     "ruff",
     "mypy",
     "pre-commit",
+    "natsort==8.4.0",
 ]
 
 [project.scripts]
