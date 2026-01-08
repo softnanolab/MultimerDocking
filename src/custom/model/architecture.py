@@ -369,6 +369,10 @@ class DockingDiT(nn.Module):
         
         self.rigid_motion_head = RigidMotionHead(d_a, d_a)
 
+        # Learnable mixing weights for velocity field combination
+        self.velocity_mix_weight_all_atom = nn.Parameter(torch.tensor(1.0))
+        self.velocity_mix_weight_rigid = nn.Parameter(torch.tensor(1.0))
+
 
     def forward(self,
                 t: torch.Tensor,
@@ -509,7 +513,7 @@ class DockingDiT(nn.Module):
 
         # Construct final velocity field per chain:
         for i, (chain_id, chain_feats) in enumerate(feats.items()):
-            chain_feats["velocity_field"] = 0.0 * chain_feats["velocity_all_atom"] + 1.0 * chain_feats["rigid_motion_velocity"]
+            chain_feats["velocity_field"] = self.velocity_mix_weight_all_atom * chain_feats["velocity_all_atom"] + self.velocity_mix_weight_rigid * chain_feats["rigid_motion_velocity"]
 
         return feats
 

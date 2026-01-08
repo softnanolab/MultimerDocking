@@ -138,7 +138,8 @@ class DockingModel(pl.LightningModule):
 
             x_0 = merge_chains(dimer_feat_dict, "augmented_coords") # (B, N_atoms_A + N_atoms_B, 3)
             x_1 = extract_full_dimer_coords(dimer_feat_dict, device=self.device) # (B, N_atoms_A + N_atoms_B, 3)
-            z = torch.randn_like(x_1) # (B, N_atoms_A + N_atoms_B, 3)
+            # z = torch.randn_like(x_1) # (B, N_atoms_A + N_atoms_B, 3)
+            z = torch.zeros_like(x_1) # (B, N_atoms_A + N_atoms_B, 3) # train without noise
             x_t = self.interpolant.compute_x_t(t.view(-1, 1, 1), x_0, x_1, z) # (B, N_atoms_A + N_atoms_B, 3)
 
             dimer_feat_dict = split_chains(dimer_feat_dict, "noised_coords", x_t)
@@ -213,7 +214,7 @@ class DockingModel(pl.LightningModule):
 
         dimer_feat_dict = prepare_input_features(dimer_feat_dict, multiplicity, device=self.device)
 
-        dimer_feat_dict = self.sampler.sample_with_plot(dimer_feat_dict, multiplicity, trainer_root_dir=self.trainer.default_root_dir)
+        dimer_feat_dict = self.sampler.sample_with_plot(dimer_feat_dict, multiplicity, trainer_root_dir=self.trainer.default_root_dir, interpolant=self.interpolant)
 
         root_dir = self.trainer.default_root_dir
         protein_id = list(dimer_feat_dict.values())[0]["protein_id"]
