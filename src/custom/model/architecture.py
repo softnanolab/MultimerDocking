@@ -6,10 +6,14 @@ import math
 
 import torch
 from torch import nn
+import torch.nn.functional as F
 
 # SF imports:
 from simplefold.model.torch.pos_embed import FourierPositionEncoding, AbsolutePositionEncoding
 from simplefold.model.torch.layers import FinalLayer, ConditionEmbedder, TimestepEmbedder
+
+# Custom imports:
+from custom.model.layers import RigidMotionLayer
 
 
 #### - Start: Attention masks - ####
@@ -284,7 +288,40 @@ class Decoder(nn.Module):
         velocity_field = self.final_layer(atom_representation, adaLN_emb) # (B, N_atoms, 3)
 
         return {"velocity_field": velocity_field}
+
+
+########################################################
+####            Rigid Motion Head                  #####
+########################################################
+class RigidMotionHead(nn.Module):
+    def __init__(self, d_a, c_dim):
+        super().__init__()
+        self.d_a = d_a
+        self.c_dim = c_dim
+        self.rigid_motion_layer = RigidMotionLayer(d_a, c_dim)
+
+        self.scoring_layer = nn.Linear(d_a, 1, bias=False)
+
+    def forward(self, x, c):
+        """
+        Takes in the main trunks output latent representation for a single monomer and outputs the rigid motion translation and angular velocity vectors.
+        Inputs: (B, L_r/2, d_a)
+        Outputs: (B, 3), (B, 3) translation and angular velocity vectors
+        """
+        B, M, d_a = x.shape # with M = L_r/2
+        assert d_a == self.d_a, "Shape mismatch"
+
+        scores = self.scoring_layer(x) # (B, M, 1)
+        scores = F.softmax(scores, dim=1) # (B, M, 1), normalize over residues
+
+        x = x * scores # (B, M, d_a)
+        x = x.sum(dim=1) # (B, d_a)
+
+        translation, angular_velocity = self.rigid_motion_layer(x, c) # (B, 3), (B, 3)
+        assert translation.shape == (B, 3) and angular_velocity.shape == (B, 3), "Shape mismatch"
         
+        return translation, angular_velocity
+
 
 ########################################################
 ####            Full model architecture            #####
@@ -329,6 +366,8 @@ class DockingDiT(nn.Module):
         # Learnable SOS and EOS tokens:
         self.seq_start_token = nn.Parameter(torch.randn(1, 1, self.d_a) * 0.02) # (1, 1, d_a)
         self.seq_end_token = nn.Parameter(torch.randn(1, 1,self.d_a) * 0.02) # (1, 1, d_a)
+        
+        self.rigid_motion_head = RigidMotionHead(d_a, d_a)
 
 
     def forward(self,
@@ -437,6 +476,20 @@ class DockingDiT(nn.Module):
         ########### End: Main trunk ###########
 
 
+        ########### Start: Rigid motion layer ###########
+        chain_A = dimer_latent[:, 0:N_r_A+2, :]
+        chain_B = dimer_latent[:, N_r_A+2:, :]
+        chains = [chain_A, chain_B]
+        assert chain_A.shape[1] == N_r_A+2 and chain_B.shape[1] == N_r_B+2, "Chain length mismatch in Rigid motion head"
+        for i, (chain_id, chain_feats) in enumerate(feats.items()):
+            translation, angular_velocity = self.rigid_motion_head(chains[i], chains_adaLN_emb[i]) # (B, 3), (B, 3)
+            x_t = chain_feats["noised_coords"] # (B, N_atoms, 3)
+            com = x_t.sum(dim=1, keepdim=True) / x_t.shape[1] # (B, 1, 3), center of mass
+
+            chain_feats["rigid_motion_velocity"] = translation.unsqueeze(1) + torch.cross(angular_velocity.unsqueeze(1), x_t - com, dim=-1)
+        ########### End: Rigid motion layer ###########
+
+
         ########### Start: Decoding ###########
         chain_A = dimer_latent[:, 1:N_r_A+1, :]
         chain_B = dimer_latent[:, N_r_A+3:-1, :]
@@ -450,8 +503,13 @@ class DockingDiT(nn.Module):
                 RoPE_pos=chains_RoPE_pos[i],
                 atom_to_token=chain_feats["atom_to_token"],
             ) # {"velocity_field": (B, N_atoms, 3)}
-            chain_feats["velocity_field"] = decoder_out["velocity_field"]
+            chain_feats["velocity_all_atom"] = decoder_out["velocity_field"]
         ########### End: Decoding ###########
+
+
+        # Construct final velocity field per chain:
+        for i, (chain_id, chain_feats) in enumerate(feats.items()):
+            chain_feats["velocity_field"] = 0.0 * chain_feats["velocity_all_atom"] + 1.0 * chain_feats["rigid_motion_velocity"]
 
         return feats
 

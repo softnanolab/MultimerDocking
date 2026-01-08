@@ -73,7 +73,7 @@ class DockingModel(pl.LightningModule):
         self.optimizer = optimizer
         self.scheduler = scheduler
 
-        self.sampler = sampler(model=self)
+        self.sampler = sampler(model=self, backbone_only=backbone_only, scale_true_coords=scale_true_coords)
 
         self.backbone_only = backbone_only
 
@@ -213,7 +213,7 @@ class DockingModel(pl.LightningModule):
 
         dimer_feat_dict = prepare_input_features(dimer_feat_dict, multiplicity, device=self.device)
 
-        dimer_feat_dict = self.sampler.sample(dimer_feat_dict, multiplicity)
+        dimer_feat_dict = self.sampler.sample_with_plot(dimer_feat_dict, multiplicity, trainer_root_dir=self.trainer.default_root_dir)
 
         root_dir = self.trainer.default_root_dir
         protein_id = list(dimer_feat_dict.values())[0]["protein_id"]

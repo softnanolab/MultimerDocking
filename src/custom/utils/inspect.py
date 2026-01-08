@@ -10,7 +10,12 @@ import numpy as np
 import biotite.structure as struc
 from biotite.structure.info import residue as get_residue
 from biotite.structure.io import save_structure
-from biotite.structure.io.pdbx import CIFFile, set_structure
+
+from Bio.PDB import MMCIFParser, PDBIO
+import os
+from glob import glob
+from natsort import natsorted
+from io import StringIO
 
 
 aa_1_to_3 = {"A":"ALA","R":"ARG","N":"ASN","D":"ASP","C":"CYS","Q":"GLN","E":"GLU",
@@ -48,7 +53,8 @@ def cif_from_tensor(chain_coords: list[torch.Tensor],
                     seqs: list[str],
                     file: str,
                     backbone_only: bool = False,
-                    scale: float = 16.0):
+                    scale: float = 16.0,
+                    verbose: bool = True):
     """
     Saves the chain coords from the chain_coords list to one CIF file.
     IMPORTANT: This function assumes the atoms are listed in CCD PDB canonical order (N,CA,C,O,CB,...). 
@@ -137,6 +143,40 @@ def cif_from_tensor(chain_coords: list[torch.Tensor],
 
     save_structure(str(save_path), atom_array)
     _append_polymer_tables(save_path, chain_ids, seqs)
-    print("Saved", save_path)
+    if verbose: print("Saved", save_path)
 
     return None
+
+
+def merge_cifs_into_trajectory(cifs_dir: str, output_traj: str):
+    """
+    - cifs_dir: str, the directory containing the CIF files
+    - output_traj: str, the path to the output PDB file. Must end with .pdb.
+    """
+    parser = MMCIFParser(QUIET=False)
+    io = PDBIO()
+    cif_files = glob(os.path.join(cifs_dir, "*.cif")) # load all cif paths
+    cif_files = natsorted(cif_files) # sort them according to traj number
+
+    # Get chain ID mapping from first file
+    first_structure = parser.get_structure("temp", cif_files[0])
+    chain_ids = [chain.id for chain in first_structure.get_chains()]
+    chain_map = {cid: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"[i] 
+                 for i, cid in enumerate(chain_ids)}
+
+    with open(output_traj, "w") as out:
+        for i, cif_path in enumerate(cif_files, 1):
+            structure = parser.get_structure(f"frame{i}", cif_path)
+            # Rename chains to single-char for PDB compatibility
+            for chain in structure.get_chains():
+                if chain.id in chain_map:
+                    chain.id = chain_map[chain.id]
+            out.write(f"MODEL     {i}\n")
+            buf = StringIO()
+            io.set_structure(structure)
+            io.save(buf)
+            lines = buf.getvalue().splitlines()
+            if lines and lines[-1].strip() == "END":
+                lines = lines[:-1]
+            out.write("\n".join(lines) + "\nENDMDL\n")
+        out.write("END\n")

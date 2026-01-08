@@ -4,13 +4,13 @@ default_root_dir: ./artifacts
 deterministic: False
 
 accelerator: gpu
-devices: 1 # 4 devices per node
+devices: auto # 4 devices per node
 strategy: 
   _target_: lightning.pytorch.strategies.DDPStrategy
   find_unused_parameters: True
   gradient_as_bucket_view: True
-  cluster_environment: # necessary to set on jupyter hub
-    _target_: lightning.pytorch.plugins.environments.LightningEnvironment
+  cluster_environment: # necessary to set on jupyter hub. COMMENT OUT FOR ISAMBARD.
+    _target_: lightning.pytorch.plugins.environments.LightningEnvironment # necessary to set on jupyter hub. COMMENT OUT FOR ISAMBARD.
 
 num_nodes: 1
 precision: bf16-mixed
@@ -45,7 +45,7 @@ callbacks:
   - _target_: lightning.pytorch.callbacks.EarlyStopping
     monitor: "val/loss"
     mode: "min"
-    patience: 40  # Number of validation checks to wait (patience * val_check_interval = optimizer steps to wait before stopping)
+    patience: 50  # Number of validation checks to wait (patience * val_check_interval = optimizer steps to wait before stopping)
     min_delta: 0.0  # Minimum change to qualify as an improvement
     check_on_train_epoch_end: False  # Check after validation, not after training epoch
     verbose: True

@@ -25,18 +25,18 @@ def train(cfg: DictConfig):
     
     trainer = instantiate(cfg.trainer)
 
-    trainer.fit(
-        model,
-        train_dataloaders=train_dataloader,
-        val_dataloaders=val_dataloader,
-        ckpt_path=cfg.paths.model_checkpoint_training, # continue training from a checkpoint
-    )
-
     # trainer.fit(
     #     model,
     #     train_dataloaders=train_dataloader,
     #     val_dataloaders=val_dataloader,
+    #     ckpt_path=cfg.paths.model_checkpoint_training, # continue training from a checkpoint
     # )
+
+    trainer.fit(
+        model,
+        train_dataloaders=train_dataloader,
+        val_dataloaders=val_dataloader,
+    )
 
 @hydra.main(
     version_base="1.3",
