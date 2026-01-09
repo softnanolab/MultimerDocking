@@ -1,0 +1,4 @@
+[submodule "submodules/mint"]
+	path = submodules/mint
+	url = https://github.com/softnanolab/mint.git
+	branch = multimer-dock
