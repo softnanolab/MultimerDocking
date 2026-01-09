@@ -22,10 +22,6 @@ def compute_aligned_RMSD(
         Ground truth atom coordinates
     atom_mask : torch.Tensor
         Resolved atom mask
-    atom_to_token : torch.Tensor
-        Atom to token mapping
-    mol_type : torch.Tensor
-        Atom type
 
     Returns
     -------
@@ -54,4 +50,45 @@ def compute_aligned_RMSD(
     # rmsd: (B,)
     # atom_coords_aligned_ground_truth: (B, N_atoms, 3)
     return rmsd, atom_coords_aligned_ground_truth
-    
+
+
+def aligned_weighted_cross_RMSD(
+    pred_atom_coords,
+    atom_coords,
+    atom_mask,
+):
+    """
+    Takes in a predicted dimer and a ground truth dimer and an atom mask.
+    Aligns the ground truth dimer to the predicted dimer but only considering the atoms specified in the atom mask.
+    Then the RMSD is computed between predicted dimer and ground truth but only considering the atoms specified in the INVERTED atom mask.
+    This RMSD is weighted by the number of atoms in the chain and returned.
+    -> I.e.: Align on chains A and compute the RMSD on chains B.
+
+    Inputs:
+    - pred_atom_coords: (B, N_atoms, 3)
+    - atom_coords: (B, N_atoms, 3)
+    - atom_mask: (B, N_atoms). 1 for atoms to align on, 0 for atoms to calculate the RMSD on.
+
+    Outputs:
+    - rmsd: (B,)
+    """
+    align_weights = atom_coords.new_ones(atom_coords.shape[:2]) # (B, N_atoms)
+
+    # Aligns the true coords to the predicted coords:
+    with torch.no_grad():
+        aligned_true_coords = weighted_rigid_align(
+            atom_coords, pred_atom_coords, align_weights, mask=atom_mask
+        )
+
+    # weighted MSE loss of denoised atom positions
+    squared_norm = ((pred_atom_coords - aligned_true_coords) ** 2).sum(dim=-1)
+
+    inverse_mask = 1 - atom_mask
+
+    rmsd = torch.sqrt(
+        torch.sum(squared_norm * align_weights * inverse_mask, dim=-1)
+        / torch.sum(align_weights * inverse_mask, dim=-1) # normalize by number of atoms
+    )
+    # rmsd: (B,)
+    # atom_coords_aligned_ground_truth: (B, N_atoms, 3)
+    return rmsd
