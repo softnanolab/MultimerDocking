@@ -3,7 +3,10 @@ Work in progress
 
 
 ## Installation
-
+Run this to add the submodules first:
+```
+git submodule update --init --recursive
+```
 With uv and conda env:
 ```
 git clone https://github.com/softnanolab/MultimerDocking.git
