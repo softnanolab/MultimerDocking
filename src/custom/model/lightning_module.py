@@ -205,8 +205,12 @@ class DockingModel(pl.LightningModule):
     @torch.no_grad()
     def validation_step(self, batch, batch_idx):
         # Validation loss:
-        loss = self._shared_step(batch, batch_idx)
+        loss_flow, rmsd_A, rmsd_B  = self._shared_step(batch, batch_idx)
+        loss = loss_flow + rmsd_A + rmsd_B
         self.log("val/loss", loss, on_step=False, on_epoch=True, prog_bar=True, logger=True, sync_dist=True, batch_size=len(batch)*self.multiplicity, add_dataloader_idx=False)
+        self.log("val/loss_flow", loss_flow, on_step=False, on_epoch=True, prog_bar=True, logger=True, sync_dist=True, batch_size=len(batch)*self.multiplicity, add_dataloader_idx=False)
+        self.log("val/rmsd_A", rmsd_A, on_step=False, on_epoch=True, prog_bar=True, logger=True, sync_dist=True, batch_size=len(batch)*self.multiplicity, add_dataloader_idx=False)
+        self.log("val/rmsd_B", rmsd_B, on_step=False, on_epoch=True, prog_bar=True, logger=True, sync_dist=True, batch_size=len(batch)*self.multiplicity, add_dataloader_idx=False)
         return loss
     
 
