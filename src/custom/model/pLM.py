@@ -4,7 +4,12 @@ Defines function for the protein language model.
 
 import torch
 from functools import partial
+import numpy as np
 
+# Mint imports:
+from mint.model.esm import ESM2
+from mint.dataclasses import Sample
+from mint.data.collate_fn import CollateFn
 
 ########################################################
 ####                     ESM_2                     #####
@@ -103,3 +108,58 @@ def calculate_esm_embedding(batch, esm_model, esm_alphabet, layers: list[int]):
             i += 1
     
     return batch
+
+
+########################################################
+####                     mint                      #####
+########################################################
+def calculate_mint_embedding(batch, mint_model, layers: list[int]):
+    """
+    Calls mint_model and attached the embeddings to the chain dictionaries as chain_dict["pLM_emb"]=tensor (1, N_chain_res + 2, len(layers), d_e).
+    Returns the updated batch.
+    """
+
+    samples = []
+    for feat_dict in batch:
+        protein_id = list(feat_dict.values())[0]["protein_id"]
+        sequences = [chain_dict["sequence"] for chain_dict in feat_dict.values()]
+        sample = Sample(
+            id=protein_id,
+            chain_id=None,
+            sequences=sequences,
+            contact_map=None,
+            attention_map=None
+        )
+        samples.append(sample)
+    
+    collate_fn = CollateFn() # list[Sample, ...] -> ContactPredictionBatch
+    mint_batch = collate_fn(samples)
+
+    device = next(mint_model.parameters()).device
+    
+    with torch.no_grad():
+        mint_out = mint_model(
+            mint_batch.tokens.to(device),
+            mint_batch.chain_ids.to(device),
+            need_head_weights=False,
+            repr_layers=layers,
+        )
+    reps = mint_out.hidden_representations # dict of layer tensors: {layer_idx: (1, seq_len, d_e)}
+    embeddings = torch.stack([reps[layer_idx] for layer_idx in layers], dim=-2)  # (B, seq_len, len(layers), d_e)
+
+    # Assign embeddings to the chain dictionaries:
+    for j, feat_dict in enumerate(batch):
+        seq_lens = [len(chain_dict["sequence"]) + 2 for chain_dict in feat_dict.values()] # +2 for the CLS and EOS tokens
+        boundaries = [0]
+        for L in seq_lens:
+            boundaries.append(boundaries[-1] + L)
+        
+        assert boundaries[-1] == embeddings.size(1), "Number of residues in the sequences and the embeddings do not match."
+
+        for i, chain_dict in enumerate(feat_dict.values()):
+            s, e = boundaries[i], boundaries[i+1]
+            chain_dict["pLM_emb"] = embeddings[j:j+1, s:e, :, :] # (1, N_r, len(layers), d_e)
+
+            assert chain_dict["pLM_emb"].size(1) == (len(chain_dict["sequence"]) + 2), "Number of residues in the sequence and the embedding do not match."
+
+    return batch    

@@ -2,8 +2,8 @@ _target_: custom.model.architecture.DockingDiT
 
 # Model dimensions:
 d_a: 768
-d_e: ${..esm_d_e}
-pLM_num_layers: ${..esm_num_layers}
+d_e: ${..mint_model.embed_dim}
+pLM_num_layers: ${..mint_model.num_layers}
 pLM_dropout_prob: 0.0
 use_length_condition: True
 

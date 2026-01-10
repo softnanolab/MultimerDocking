@@ -90,5 +90,4 @@ def aligned_weighted_cross_RMSD(
         / torch.sum(align_weights * inverse_mask, dim=-1) # normalize by number of atoms
     )
     # rmsd: (B,)
-    # atom_coords_aligned_ground_truth: (B, N_atoms, 3)
     return rmsd

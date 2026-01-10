@@ -5,14 +5,17 @@ _target_: custom.model.lightning_module.DockingModel
 # architecture:
 #   some_param: value
 
-esm_model:
-  _target_: custom.model.pLM.load_esm
-  model_key: esm2_3B
-  device: cuda
+mint_model:
+  _target_: mint.model.esm.ESM2
+  num_layers: 33
+  embed_dim: 1280
+  attention_heads: 20
+  token_dropout: False
+  use_multimer: True
+  activation_checkpointing: False
 
-esm_layers: all # "all" for all layers, or a list of integers for specific layers.
-esm_num_layers: 37
-esm_d_e: 2560
+mint_use_weights: mint # esm2 / mint / null (no weights)
+mint_layers: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33]
 
 multiplicity: 48 # Number of dimer copies per GPU for efficient MC averaging over t,R,z.
 

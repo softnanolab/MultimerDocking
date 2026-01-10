@@ -195,6 +195,9 @@ def prepare_input_features(dimer_feat_dict, multiplicity: int, device: torch.dev
 
         chain_dict["true_coords"] = chain_dict["true_coords"].repeat_interleave(multiplicity, dim=0).float() # (B, N_atoms, 3)
 
+        B, N_atoms, _ = chain_dict["true_coords"].shape
+        chain_dict["N_atoms"] = N_atoms
+
         N_r = len(chain_dict["sequence"])
         chain_dict["sequence_length"] = torch.tensor([N_r], device=device).repeat_interleave(multiplicity, dim=0).unsqueeze(-1).float() # (B, 1)
 
