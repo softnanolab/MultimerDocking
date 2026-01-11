@@ -513,7 +513,9 @@ class DockingDiT(nn.Module):
 
         # Construct final velocity field per chain:
         for i, (chain_id, chain_feats) in enumerate(feats.items()):
-            chain_feats["velocity_field"] = self.velocity_mix_weight_all_atom * chain_feats["velocity_all_atom"] + self.velocity_mix_weight_rigid * chain_feats["rigid_motion_velocity"]
+            # chain_feats["velocity_field"] = self.velocity_mix_weight_all_atom * chain_feats["velocity_all_atom"] + self.velocity_mix_weight_rigid * chain_feats["rigid_motion_velocity"]
+            chain_feats["velocity_field"] = 1.0 * chain_feats["velocity_all_atom"] + 0.0 * chain_feats["rigid_motion_velocity"]
+
 
         return feats
 

@@ -87,7 +87,7 @@ class EulerSampler:
         dimer_feat_dict = split_chains(dimer_feat_dict, "noised_coords", x) # Add the initial noised_coords to the dimer_feat_dict
 
         #### Save initial structure:
-        save_to_trajectory("noised_coords", dimer_feat_dict, 0, trainer_root_dir, self.backbone_only, self.scale_true_coords)
+        # save_to_trajectory("noised_coords", dimer_feat_dict, 0, trainer_root_dir, self.backbone_only, self.scale_true_coords)
         #### End of saving initial structure
 
         # For saving the interpolant:
@@ -110,17 +110,17 @@ class EulerSampler:
             dimer_feat_dict = split_chains(dimer_feat_dict, "noised_coords", x)
 
             # Calculate interpolant:
-            dimer_feat_dict = calculate_interpolant(dimer_feat_dict, device, interpolant, x_0, x_1, t)
+            # dimer_feat_dict = calculate_interpolant(dimer_feat_dict, device, interpolant, x_0, x_1, t)
 
             #### Save structure for trajectory visualization:
-            save_to_trajectory("noised_coords", dimer_feat_dict, i+1, trainer_root_dir, self.backbone_only, self.scale_true_coords)
-            save_to_trajectory("interpolated_coords", dimer_feat_dict, i+1, trainer_root_dir, self.backbone_only, self.scale_true_coords)
+            # save_to_trajectory("noised_coords", dimer_feat_dict, i+1, trainer_root_dir, self.backbone_only, self.scale_true_coords)
+            # save_to_trajectory("interpolated_coords", dimer_feat_dict, i+1, trainer_root_dir, self.backbone_only, self.scale_true_coords)
             #### End of saving structure
 
         # Merge cif files into final trajectory:
-        protein_id = list(dimer_feat_dict.values())[0]["protein_id"]
-        merge_cifs_into_trajectory(f"{trainer_root_dir}/trajectories/{protein_id}/noised_coords/", f"{trainer_root_dir}/trajectories/{protein_id}/noised_coords.pdb")
-        merge_cifs_into_trajectory(f"{trainer_root_dir}/trajectories/{protein_id}/interpolated_coords/", f"{trainer_root_dir}/trajectories/{protein_id}/interpolated_coords.pdb")
+        # protein_id = list(dimer_feat_dict.values())[0]["protein_id"]
+        # merge_cifs_into_trajectory(f"{trainer_root_dir}/trajectories/{protein_id}/noised_coords/", f"{trainer_root_dir}/trajectories/{protein_id}/noised_coords.pdb")
+        # merge_cifs_into_trajectory(f"{trainer_root_dir}/trajectories/{protein_id}/interpolated_coords/", f"{trainer_root_dir}/trajectories/{protein_id}/interpolated_coords.pdb")
 
         dimer_feat_dict = split_chains(dimer_feat_dict, "final_sampled_coords", x)
         return dimer_feat_dict
