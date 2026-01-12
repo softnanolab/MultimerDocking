@@ -4,5 +4,5 @@ paths:
   AFDDI_output: /projects/u5dp/Erik_data/AFDDI/processed
   AFDDI_split_json: /projects/u5dp/Erik_data/AFDDI/AFDB_DDI/mint_index.json
 
-  model_checkpoint_testing:
+  model_checkpoint_testing: /projects/u5dp/Erik/dock/training/jobs/MINT_and_crossRMSD_train_run/artifacts/checkpoints/best_val_loss-96000.ckpt
   model_checkpoint_training:
