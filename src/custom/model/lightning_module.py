@@ -6,6 +6,8 @@ import torch
 import torch.nn.functional as F
 import lightning.pytorch as pl
 
+from DockQ.DockQ import load_PDB, run_on_all_native_interfaces
+
 # custom imports:
 from custom.model.pLM import calculate_mint_embedding
 from custom.data_processing.data import (
@@ -18,7 +20,7 @@ from custom.data_processing.data import (
     split_chains,
 )
 from custom.utils.inspect import cif_from_tensor
-from custom.utils.structure_utils import aligned_weighted_cross_RMSD
+from custom.utils.structure_utils import aligned_weighted_cross_RMSD, create_crop_mask
 
 
 def logit_normal_sample(n=1, m=0.0, s=1.0):
@@ -47,6 +49,12 @@ class DockingModel(pl.LightningModule):
             sampler,
             backbone_only,
             test_rmsd = None,
+            test_single_chain_rmsd = None,
+            crop_terminal_residues = None,
+            test_dockq = None,
+            test_fnat_dockq = None,
+            test_iRMSD_dockq = None,
+            test_LRMSD_dockq = None,
     ):
         super().__init__()
 
@@ -81,7 +89,12 @@ class DockingModel(pl.LightningModule):
         self.backbone_only = backbone_only
 
         self.test_rmsd = test_rmsd # MeanRMSD object from custom.utils.benchmarking
-
+        self.test_single_chain_rmsd = test_single_chain_rmsd # SingleChainRMSD object from custom.utils.benchmarking
+        self.crop_terminal_residues = crop_terminal_residues
+        self.test_dockq = test_dockq # DockQMetric object from custom.utils.benchmarking
+        self.test_fnat_dockq = test_fnat_dockq # fnat_DockQMetric object from custom.utils.benchmarking
+        self.test_iRMSD_dockq = test_iRMSD_dockq # iRMSD_DockQMetric object from custom.utils.benchmarking
+        self.test_LRMSD_dockq = test_LRMSD_dockq # LRMSD_DockQMetric object from custom.utils.benchmarking
 
     def configure_optimizers(self):
         # Exclude pLM model parameters since they're frozen:
@@ -217,22 +230,101 @@ class DockingModel(pl.LightningModule):
     @torch.no_grad()
     def test_step(self, batch, batch_idx):
 
-        pred_coords = self.predict(batch, batch_idx) # (B, N_atoms_full_dimer, 3)
+        pred_coords, file_pred, file_true = self.predict(batch, batch_idx) # (B, N_atoms_full_dimer, 3)
 
         assert len(batch) == 1, "ERROR: Only one dimer per GPU allowed."
         dimer_feat_dict = batch[0]
         true_coords = merge_chains(dimer_feat_dict, "true_coords") # (B, N_atoms_full_dimer, 3)
 
-        self.test_rmsd.update(pred_coords*self.scale_true_coords, true_coords*self.scale_true_coords)
+        # Crop M residues from all chain termini:
+        crop_mask = create_crop_mask(dimer_feat_dict, M=self.crop_terminal_residues) # (B, N_atoms_A + N_atoms_B)
         
+        ######### Dimer RMSD:
+        self.test_rmsd.update(pred_coords*self.scale_true_coords, true_coords*self.scale_true_coords, crop_mask.float())
         self.log(
-            "test/rmsd(A)",
+            "test/dimer_rmsd(A)",
             self.test_rmsd,
             on_step=False,
             on_epoch=True,
             prog_bar=True,
             sync_dist=True,
         )
+        ########
+
+        ######## Chain RMSD:
+        chain_ids = list(dimer_feat_dict.keys())
+        N_atoms_A = dimer_feat_dict[chain_ids[0]]["N_atoms"]
+        N_atoms_B = dimer_feat_dict[chain_ids[1]]["N_atoms"]
+        B = true_coords.size(0)
+        N_total = N_atoms_A + N_atoms_B
+
+        chain_mask_A = (torch.arange(N_total, device=true_coords.device) < N_atoms_A).unsqueeze(0).expand(B, -1)
+        chain_mask_B = ~chain_mask_A
+        combined_mask_A = crop_mask & chain_mask_A
+        combined_mask_B = crop_mask & chain_mask_B
+
+        # Chain A:
+        self.test_single_chain_rmsd.update(pred_coords*self.scale_true_coords, true_coords*self.scale_true_coords, combined_mask_A.float())
+
+        # Chain B:
+        self.test_single_chain_rmsd.update(pred_coords*self.scale_true_coords, true_coords*self.scale_true_coords, combined_mask_B.float())
+        
+        self.log(
+            "test/monomer_rmsd(A)",
+            self.test_single_chain_rmsd,
+            on_step=False,
+            on_epoch=True,
+            prog_bar=True,
+            sync_dist=True,
+        )
+        ########
+
+        ######## DockQ:
+        model = load_PDB(file_pred)
+        native = load_PDB(file_true)
+
+        dockq_out_dict = run_on_all_native_interfaces(model, native)
+        self.test_dockq.update(dockq_out_dict)
+        self.test_fnat_dockq.update(dockq_out_dict)
+        self.test_iRMSD_dockq.update(dockq_out_dict)
+        self.test_LRMSD_dockq.update(dockq_out_dict)
+
+        self.log(
+            "test/dockq(0 to 1)",
+            self.test_dockq,
+            on_step=False,
+            on_epoch=True,
+            prog_bar=True,
+            sync_dist=True,
+        )
+        self.log(
+            "test/fnat_dockq(0 to 1)",
+            self.test_fnat_dockq,
+            on_step=False,
+            on_epoch=True,
+            prog_bar=True,
+            sync_dist=True,
+        )
+        self.log(
+            "test/iRMSD_dockq(A)",
+            self.test_iRMSD_dockq,
+            on_step=False,
+            on_epoch=True,
+            prog_bar=True,
+            sync_dist=True,
+        )
+        self.log(
+            "test/LRMSD_dockq(A)",
+            self.test_LRMSD_dockq,
+            on_step=False,
+            on_epoch=True,
+            prog_bar=True,
+            sync_dist=True,
+        )
+        ########
+
+
+        
         return None
     
 
@@ -288,4 +380,4 @@ class DockingModel(pl.LightningModule):
         )
 
         pred_coords = merge_chains(dimer_feat_dict, "final_sampled_coords") # (B, N_atoms_full_dimer, 3)
-        return pred_coords
+        return pred_coords, file, file_true

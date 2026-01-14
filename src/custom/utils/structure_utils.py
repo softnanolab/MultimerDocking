@@ -91,3 +91,46 @@ def aligned_weighted_cross_RMSD(
     )
     # rmsd: (B,)
     return rmsd
+
+
+def crop_first_last_M_residues_from_atom_res_idx(res_idx: torch.Tensor, M: int) -> torch.Tensor:
+    """
+    res_idx: (B, N_atoms, 1) or (B, N_atoms) integer residue indices per atom
+    returns atom_mask: (B, N_atoms) bool, True = keep
+    """
+    if res_idx.dim() == 3:
+        res = res_idx.squeeze(-1)
+    else:
+        res = res_idx
+    assert res.dim() == 2, res.shape
+
+    # Handle any padding atoms if you have them: you must define how they look.
+    # If you have an existing atom_mask for valid atoms, apply it here.
+    # For now assume all atoms valid.
+    res_min = res.amin(dim=1, keepdim=True)  # (B,1)
+    res_max = res.amax(dim=1, keepdim=True)  # (B,1)
+
+    low  = res_min + M
+    high = res_max - M
+
+    keep = (res >= low) & (res <= high)      # (B, N_atoms)
+
+    # Optional: if M is too large, this will create all-False masks; decide policy:
+    # keep = keep & (high >= low)  # ensures empty if impossible
+    return keep # (B, N_atoms)
+
+
+def create_crop_mask(dimer_feat_dict: dict, M: int) -> torch.Tensor:
+    """
+    Returns a boolean mask cropping M residues from the N- and C- terminus of each chain.
+    returns mask with shape (B, N_atoms_A + N_atoms_B), True = keep
+    """
+    chain_ids = list(dimer_feat_dict.keys())
+    res_id_A = dimer_feat_dict[chain_ids[0]]["res_id"] # (B, N_atoms_A, 1), specifies the residue id for each atom
+    res_id_B = dimer_feat_dict[chain_ids[1]]["res_id"] # (B, N_atoms_B, 1)
+    if M is None:
+        return torch.ones(res_id_A.shape[0], res_id_A.shape[1] + res_id_B.shape[1], dtype=torch.bool, device=res_id_A.device)
+    crop_mask_A = crop_first_last_M_residues_from_atom_res_idx(res_id_A, M=M) # (B, N_atoms_A)
+    crop_mask_B = crop_first_last_M_residues_from_atom_res_idx(res_id_B, M=M) # (B, N_atoms_B)
+    crop_mask = torch.cat([crop_mask_A, crop_mask_B], dim=1) # (B, N_atoms_A + N_atoms_B)
+    return crop_mask # boolean with True = keep, (B, N_atoms_A + N_atoms_B)

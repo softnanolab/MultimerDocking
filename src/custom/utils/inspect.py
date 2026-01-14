@@ -4,6 +4,7 @@ Contains utility functions for inspecting the model, data, and training process.
 
 
 import pathlib
+import string
 
 import torch
 import numpy as np
@@ -48,6 +49,22 @@ def _append_polymer_tables(cif_path: pathlib.Path, chain_ids: list[str], seqs: l
         f.writelines(lines)
 
 
+class AlphabetCounter:
+    def __init__(self):
+        self._letters = string.ascii_uppercase
+        self._idx = 0
+
+    def __call__(self):
+        if self._idx >= len(self._letters):
+            raise StopIteration("Alphabet exhausted (A–Z).")
+        letter = self._letters[self._idx]
+        self._idx += 1
+        return letter
+
+    def reset(self):
+        self._idx = 0
+
+
 def cif_from_tensor(chain_coords: list[torch.Tensor],
                     chain_ids: list[str],
                     seqs: list[str],
@@ -78,7 +95,9 @@ def cif_from_tensor(chain_coords: list[torch.Tensor],
 
     offset = 0
     # Iterate over chains:
-    for coords, chain_id, seq in zip(chain_coords, chain_ids, seqs):
+    alphabet = AlphabetCounter()
+    alphas = []
+    for coords, _, seq in zip(chain_coords, chain_ids, seqs):
         assert coords.ndim == 3 and coords.shape[0] == 1 and coords.shape[2] == 3, "ERROR: Coordinates shape mismatch"
         N_atoms = coords.shape[1]
         xyz = coords.detach().cpu().float().numpy().squeeze(0) # (N_atoms, 3)
@@ -122,7 +141,9 @@ def cif_from_tensor(chain_coords: list[torch.Tensor],
 
         # Assign chain level quantities:
         atom_array.coord[offset:offset+N_atoms] = xyz
-        atom_array.chain_id[offset:offset+N_atoms] = np.full(N_atoms, chain_id)
+        alpha_chain_id = alphabet()
+        alphas.append(alpha_chain_id)
+        atom_array.chain_id[offset:offset+N_atoms] = np.full(N_atoms, alpha_chain_id)
         atom_array.ins_code[offset:offset+N_atoms] = np.full(N_atoms, "")
         atom_array.hetero[offset:offset+N_atoms] = np.full(N_atoms, False)
         atom_array.occupancy[offset:offset+N_atoms] = np.full(N_atoms, 1.0)
@@ -142,7 +163,7 @@ def cif_from_tensor(chain_coords: list[torch.Tensor],
     save_path = file.with_suffix(".cif")
 
     save_structure(str(save_path), atom_array)
-    _append_polymer_tables(save_path, chain_ids, seqs)
+    _append_polymer_tables(save_path, alphas, seqs)
     if verbose: print("Saved", save_path)
 
     return None

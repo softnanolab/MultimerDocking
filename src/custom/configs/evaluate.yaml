@@ -11,3 +11,17 @@ seed: 57
 lightning_module:
   test_rmsd:
     _target_: custom.utils.benchmarking.MeanRMSD
+  test_single_chain_rmsd:
+    _target_: custom.utils.benchmarking.SingleChainRMSD
+  crop_terminal_residues: 4 # number of residues to crop from the N- and C- terminus of each chain
+  # The idea is that cropping should yield a more useful RMSD because at the chopped chain ends,
+  # the protein might be disordered and flexible.
+  # Set to None or 0 to not crop.
+  test_dockq:
+    _target_: custom.utils.benchmarking.DockQMetric
+  test_fnat_dockq:
+    _target_: custom.utils.benchmarking.fnat_DockQMetric
+  test_iRMSD_dockq:
+    _target_: custom.utils.benchmarking.iRMSD_DockQMetric
+  test_LRMSD_dockq:
+    _target_: custom.utils.benchmarking.LRMSD_DockQMetric
