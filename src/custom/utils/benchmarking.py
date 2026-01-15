@@ -124,3 +124,20 @@ class LRMSD_DockQMetric(Metric):
 
     def compute(self) -> torch.Tensor:
         return self.sum_dockq / torch.clamp(self.n_samples, min=1)
+
+
+class FailingDockQMetric(Metric):
+    def __init__(self):
+        super().__init__()
+        # accumulate total DockQ and total number of samples
+        self.add_state("sum_dockq", default=torch.tensor(0.0), dist_reduce_fx="sum")
+        self.add_state("n_samples", default=torch.tensor(0), dist_reduce_fx="sum")
+
+    def update(self):
+        """
+        Increments when dockq fails to evaluate.
+        """
+        self.n_samples += 1
+
+    def compute(self) -> torch.Tensor:
+        return self.n_samples

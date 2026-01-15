@@ -55,6 +55,7 @@ class DockingModel(pl.LightningModule):
             test_fnat_dockq = None,
             test_iRMSD_dockq = None,
             test_LRMSD_dockq = None,
+            test_failing_dockq = None,
     ):
         super().__init__()
 
@@ -95,6 +96,7 @@ class DockingModel(pl.LightningModule):
         self.test_fnat_dockq = test_fnat_dockq # fnat_DockQMetric object from custom.utils.benchmarking
         self.test_iRMSD_dockq = test_iRMSD_dockq # iRMSD_DockQMetric object from custom.utils.benchmarking
         self.test_LRMSD_dockq = test_LRMSD_dockq # LRMSD_DockQMetric object from custom.utils.benchmarking
+        self.test_failing_dockq = test_failing_dockq # FailingDockQMetric object from custom.utils.benchmarking
 
     def configure_optimizers(self):
         # Exclude pLM model parameters since they're frozen:
@@ -284,38 +286,52 @@ class DockingModel(pl.LightningModule):
         native = load_PDB(file_true)
 
         dockq_out_dict = run_on_all_native_interfaces(model, native)
-        self.test_dockq.update(dockq_out_dict)
-        self.test_fnat_dockq.update(dockq_out_dict)
-        self.test_iRMSD_dockq.update(dockq_out_dict)
-        self.test_LRMSD_dockq.update(dockq_out_dict)
+        if dockq_out_dict[1] == 0:
+            self.test_failing_dockq.update()
+            # Can fail if interface distance in native structure is too large for AFDDI pseudo-dimers.
+        else:
+            # Updated metrics only if dockq succeeds.
+            self.test_dockq.update(dockq_out_dict)
+            self.test_fnat_dockq.update(dockq_out_dict)
+            self.test_iRMSD_dockq.update(dockq_out_dict)
+            self.test_LRMSD_dockq.update(dockq_out_dict)
+            self.log(
+                "test/dockq(0 to 1)",
+                self.test_dockq,
+                on_step=False,
+                on_epoch=True,
+                prog_bar=True,
+                sync_dist=True,
+            )
+            self.log(
+                "test/fnat_dockq(0 to 1)",
+                self.test_fnat_dockq,
+                on_step=False,
+                on_epoch=True,
+                prog_bar=True,
+                sync_dist=True,
+            )
+            self.log(
+                "test/iRMSD_dockq(A)",
+                self.test_iRMSD_dockq,
+                on_step=False,
+                on_epoch=True,
+                prog_bar=True,
+                sync_dist=True,
+            )
+            self.log(
+                "test/LRMSD_dockq(A)",
+                self.test_LRMSD_dockq,
+                on_step=False,
+                on_epoch=True,
+                prog_bar=True,
+                sync_dist=True,
+            )
 
+        # Log count of failing dockq evaluations:
         self.log(
-            "test/dockq(0 to 1)",
-            self.test_dockq,
-            on_step=False,
-            on_epoch=True,
-            prog_bar=True,
-            sync_dist=True,
-        )
-        self.log(
-            "test/fnat_dockq(0 to 1)",
-            self.test_fnat_dockq,
-            on_step=False,
-            on_epoch=True,
-            prog_bar=True,
-            sync_dist=True,
-        )
-        self.log(
-            "test/iRMSD_dockq(A)",
-            self.test_iRMSD_dockq,
-            on_step=False,
-            on_epoch=True,
-            prog_bar=True,
-            sync_dist=True,
-        )
-        self.log(
-            "test/LRMSD_dockq(A)",
-            self.test_LRMSD_dockq,
+            "test/failing_dockq(count)",
+            self.test_failing_dockq,
             on_step=False,
             on_epoch=True,
             prog_bar=True,

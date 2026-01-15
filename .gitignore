@@ -11,4 +11,3 @@ venv
 .vscode
 .ipynb_checkpoints
 outputs
-submodules/

@@ -1,5 +1,5 @@
 paths:
-  AFDDI_manifest: /projects/u5dp/Erik/dock/training/jobs/MINT_and_crossRMSD_train_run/5val_manifest.jsonl #/projects/u5dp/Erik_data/AFDDI/processed/manifest.jsonl
+  AFDDI_manifest: /projects/u5dp/Erik_data/AFDDI/processed/manifest.jsonl
   AFDDI_dataset: /projects/u5dp/Erik_data/AFDDI/AFDB_DDI/dompdbs
   AFDDI_output: /projects/u5dp/Erik_data/AFDDI/processed
   AFDDI_split_json: /projects/u5dp/Erik_data/AFDDI/AFDB_DDI/mint_index.json
