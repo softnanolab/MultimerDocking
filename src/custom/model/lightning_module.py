@@ -179,7 +179,8 @@ class DockingModel(pl.LightningModule):
 
             x_0 = merge_chains(dimer_feat_dict, "augmented_coords") # (B, N_atoms_A + N_atoms_B, 3)
             x_1 = extract_full_dimer_coords(dimer_feat_dict, device=self.device) # (B, N_atoms_A + N_atoms_B, 3)
-            z = torch.randn_like(x_1) # (B, N_atoms_A + N_atoms_B, 3)
+            # z = torch.randn_like(x_1) # (B, N_atoms_A + N_atoms_B, 3)
+            z = torch.zeros_like(x_1) # Test training with no noise.
             x_t = self.interpolant.compute_x_t(t.view(-1, 1, 1), x_0, x_1, z) # (B, N_atoms_A + N_atoms_B, 3)
 
             dimer_feat_dict = split_chains(dimer_feat_dict, "noised_coords", x_t)
