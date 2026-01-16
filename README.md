@@ -17,6 +17,11 @@ uv pip install -e ".[dev]"
 cd submodules/mint && uv pip install -e .   # this is to install mint
 ```
 
+For later submodule updates from main repo:
+```
+git submodule update --remote --merge
+```
+
 
 With uv and uv env:
 ```
