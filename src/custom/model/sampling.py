@@ -90,7 +90,9 @@ class EulerSampler:
 
             v_predicted = merge_chains(dimer_feat_dict, "velocity_field") # (B, N_atoms_A + N_atoms_B, 3)
             
-            delta_x = v_predicted * (t_next - t)
+            dt = t_next - t
+            dt = dt[:, None, None] # (B, 1, 1)
+            delta_x = v_predicted * dt
             x = x + delta_x
 
             # Update coordinates for input to the model in the next time step:
@@ -115,7 +117,7 @@ class EulerSampler:
         #### End of saving initial structure
 
         # For saving the interpolant:
-        x_0 = x
+        x_0 = x.clone()
         x_1 = extract_full_dimer_coords(dimer_feat_dict, device=device) # (B, N_atoms_A + N_atoms_B, 3)
 
         for i in tqdm(range(self.num_timesteps), desc="Sampling", total=self.num_timesteps):

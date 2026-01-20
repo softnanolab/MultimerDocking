@@ -2,9 +2,12 @@
 This module defines the pytorch lightning model for the docking DiT.
 """
 
+import csv
+import os
 import torch
 import torch.nn.functional as F
 import lightning.pytorch as pl
+import torch.distributed as dist
 
 from DockQ.DockQ import load_PDB, run_on_all_native_interfaces
 
@@ -97,6 +100,7 @@ class DockingModel(pl.LightningModule):
         self.test_iRMSD_dockq = test_iRMSD_dockq # iRMSD_DockQMetric object from custom.utils.benchmarking
         self.test_LRMSD_dockq = test_LRMSD_dockq # LRMSD_DockQMetric object from custom.utils.benchmarking
         self.test_failing_dockq = test_failing_dockq # FailingDockQMetric object from custom.utils.benchmarking
+        self.test_records = []
 
     def configure_optimizers(self):
         # Exclude pLM model parameters since they're frozen:
@@ -123,6 +127,18 @@ class DockingModel(pl.LightningModule):
             f"world_size={self.trainer.world_size}",
             flush=True,
         )
+
+
+    def on_test_start(self):
+        self.test_records = []
+
+
+    def _to_float(self, value):
+        if value is None:
+            return None
+        if isinstance(value, torch.Tensor):
+            return float(value.detach().item())
+        return float(value)
 
 
     def forward(self, t, feats):
@@ -243,7 +259,12 @@ class DockingModel(pl.LightningModule):
         crop_mask = create_crop_mask(dimer_feat_dict, M=self.crop_terminal_residues) # (B, N_atoms_A + N_atoms_B)
         
         ######### Dimer RMSD:
-        self.test_rmsd.update(pred_coords*self.scale_true_coords, true_coords*self.scale_true_coords, crop_mask.float())
+        self.test_rmsd.update(
+            pred_coords*self.scale_true_coords,
+            true_coords*self.scale_true_coords,
+            crop_mask.float()
+        )
+        dimer_rmsd = self.test_rmsd.last_value
         self.log(
             "test/dimer_rmsd(A)",
             self.test_rmsd,
@@ -267,10 +288,20 @@ class DockingModel(pl.LightningModule):
         combined_mask_B = crop_mask & chain_mask_B
 
         # Chain A:
-        self.test_single_chain_rmsd.update(pred_coords*self.scale_true_coords, true_coords*self.scale_true_coords, combined_mask_A.float())
-
+        self.test_single_chain_rmsd.update(
+            pred_coords*self.scale_true_coords,
+            true_coords*self.scale_true_coords,
+            combined_mask_A.float()
+        )
+        chainA_rmsd = self.test_single_chain_rmsd.last_value
+        
         # Chain B:
-        self.test_single_chain_rmsd.update(pred_coords*self.scale_true_coords, true_coords*self.scale_true_coords, combined_mask_B.float())
+        self.test_single_chain_rmsd.update(
+            pred_coords*self.scale_true_coords,
+            true_coords*self.scale_true_coords,
+            combined_mask_B.float()
+        )
+        chainB_rmsd = self.test_single_chain_rmsd.last_value
         
         self.log(
             "test/monomer_rmsd(A)",
@@ -287,15 +318,30 @@ class DockingModel(pl.LightningModule):
         native = load_PDB(file_true)
 
         dockq_out_dict = run_on_all_native_interfaces(model, native)
+        dockq = None
+        fnat = None
+        irmsd = None
+        lrmsd = None
+        protein_id = list(dimer_feat_dict.values())[0]["protein_id"]
+        dockq_failed = 0
         if dockq_out_dict[1] == 0:
-            self.test_failing_dockq.update()
+            dockq_failed = 1
             # Can fail if interface distance in native structure is too large for AFDDI pseudo-dimers.
         else:
             # Updated metrics only if dockq succeeds.
-            self.test_dockq.update(dockq_out_dict)
-            self.test_fnat_dockq.update(dockq_out_dict)
-            self.test_iRMSD_dockq.update(dockq_out_dict)
-            self.test_LRMSD_dockq.update(dockq_out_dict)
+
+            dockq = dockq_out_dict[0]['AB']['DockQ']
+            fnat = dockq_out_dict[0]['AB']['fnat']
+            irmsd = dockq_out_dict[0]['AB']['iRMSD']
+            lrmsd = dockq_out_dict[0]['AB']['LRMSD']
+            
+            self.test_dockq.update(dockq)
+            self.test_fnat_dockq.update(fnat)
+            self.test_iRMSD_dockq.update(irmsd)
+            self.test_LRMSD_dockq.update(lrmsd)
+
+            print(f"dimer_rmsd: {dimer_rmsd}, chainA_rmsd: {chainA_rmsd}, chainB_rmsd: {chainB_rmsd}, DockQ: {dockq}, fnat: {fnat}, irmsd: {irmsd}, lrmsd: {lrmsd}")
+
             self.log(
                 "test/dockq(0 to 1)",
                 self.test_dockq,
@@ -330,6 +376,7 @@ class DockingModel(pl.LightningModule):
             )
 
         # Log count of failing dockq evaluations:
+        self.test_failing_dockq.update(dockq_failed)
         self.log(
             "test/failing_dockq(count)",
             self.test_failing_dockq,
@@ -340,8 +387,20 @@ class DockingModel(pl.LightningModule):
         )
         ########
 
+        self.test_records.append(
+            {
+                "protein_id": protein_id,
+                "dimer_rmsd": self._to_float(dimer_rmsd),
+                "chainA_rmsd": self._to_float(chainA_rmsd),
+                "chainB_rmsd": self._to_float(chainB_rmsd),
+                "dockq": self._to_float(dockq),
+                "fnat": self._to_float(fnat),
+                "irmsd": self._to_float(irmsd),
+                "lrmsd": self._to_float(lrmsd),
+                "dockq_failed": dockq_failed,
+            }
+        )
 
-        
         return None
     
 
@@ -398,3 +457,33 @@ class DockingModel(pl.LightningModule):
 
         pred_coords = merge_chains(dimer_feat_dict, "final_sampled_coords") # (B, N_atoms_full_dimer, 3)
         return pred_coords, file, file_true
+
+
+    def on_test_epoch_end(self):
+        records = self.test_records
+        if dist.is_available() and dist.is_initialized():
+            gathered = None
+            if dist.get_rank() == 0:
+                gathered = [None for _ in range(dist.get_world_size())]
+            dist.gather_object(records, gathered, dst=0)
+            if dist.get_rank() == 0:
+                records = [r for sub in gathered for r in sub]
+
+        if self.trainer.is_global_zero:
+            out_path = os.path.join(self.trainer.default_root_dir, "test_metrics.csv")
+            os.makedirs(os.path.dirname(out_path), exist_ok=True)
+            fieldnames = [
+                "protein_id",
+                "dimer_rmsd",
+                "chainA_rmsd",
+                "chainB_rmsd",
+                "dockq",
+                "fnat",
+                "irmsd",
+                "lrmsd",
+                "dockq_failed",
+            ]
+            with open(out_path, "w", newline="") as f:
+                writer = csv.DictWriter(f, fieldnames=fieldnames)
+                writer.writeheader()
+                writer.writerows(records)

@@ -6,6 +6,7 @@ Contains utility functions for inspecting the model, data, and training process.
 import pathlib
 import string
 
+from tqdm import tqdm
 import torch
 import numpy as np
 import biotite.structure as struc
@@ -186,7 +187,7 @@ def merge_cifs_into_trajectory(cifs_dir: str, output_traj: str):
                  for i, cid in enumerate(chain_ids)}
 
     with open(output_traj, "w") as out:
-        for i, cif_path in enumerate(cif_files, 1):
+        for i, cif_path in tqdm(enumerate(cif_files, 1), total=len(cif_files), desc=f"Merging CIFs into trajectory {output_traj}"):
             structure = parser.get_structure(f"frame{i}", cif_path)
             # Rename chains to single-char for PDB compatibility
             for chain in structure.get_chains():

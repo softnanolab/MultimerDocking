@@ -4,7 +4,7 @@ paths:
   AFDDI_output: /projects/u5dp/Erik_data/AFDDI/processed
   AFDDI_split_json: /projects/u5dp/Erik_data/AFDDI/AFDB_DDI/mint_index.json
 
-  model_checkpoint_testing: 
+  model_checkpoint_testing:
   model_checkpoint_training:
 
   mint_checkpoint: /projects/public/u5do/mint_ckpt/epoch=26-step=74000.ckpt # ckpt_path or keyword: esm2 / mint / null (no weights)
