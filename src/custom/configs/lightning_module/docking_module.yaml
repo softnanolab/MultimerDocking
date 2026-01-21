@@ -41,7 +41,7 @@ scheduler:
 sampler:
   _target_: custom.model.sampling.EulerSampler
   _partial_: true
-  num_timesteps: 500 # 1500 
+  num_timesteps: 1500 # 1500 
   t_start: 1e-4
   t_end: 1.0
 

@@ -9,10 +9,10 @@ strategy:
   _target_: lightning.pytorch.strategies.DDPStrategy
   find_unused_parameters: True
   gradient_as_bucket_view: True
-  # cluster_environment: # necessary to set on jupyter hub
-    # _target_: lightning.pytorch.plugins.environments.LightningEnvironment
+  cluster_environment: # necessary to set on jupyter hub
+    _target_: lightning.pytorch.plugins.environments.LightningEnvironment
 
-num_nodes: 8
+num_nodes: 1
 precision: bf16-mixed
 accumulate_grad_batches: 1 # 4 if only 1 gpu
 max_steps: 20000000
