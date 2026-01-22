@@ -59,6 +59,8 @@ class DockingModel(pl.LightningModule):
             test_iRMSD_dockq = None,
             test_LRMSD_dockq = None,
             test_failing_dockq = None,
+            test_cross_chain_rmsd_A = None,
+            test_cross_chain_rmsd_B = None,
     ):
         super().__init__()
 
@@ -293,7 +295,14 @@ class DockingModel(pl.LightningModule):
             true_coords*self.scale_true_coords,
             combined_mask_A.float()
         )
-        chainA_rmsd = self.test_single_chain_rmsd.last_value
+        monomer_chainA_rmsd = self.test_single_chain_rmsd.last_value
+        # aligned on A RMSD calculated on B:
+        self.test_cross_chain_rmsd_A.update(
+            pred_coords*self.scale_true_coords,
+            true_coords*self.scale_true_coords,
+            combined_mask_A.float()
+        )
+        cross_chain_rmsd_A = self.test_cross_chain_rmsd_A.last_value
         
         # Chain B:
         self.test_single_chain_rmsd.update(
@@ -301,7 +310,14 @@ class DockingModel(pl.LightningModule):
             true_coords*self.scale_true_coords,
             combined_mask_B.float()
         )
-        chainB_rmsd = self.test_single_chain_rmsd.last_value
+        monomer_chainB_rmsd = self.test_single_chain_rmsd.last_value
+        # aligned on B RMSDcalculated on A:
+        self.test_cross_chain_rmsd_B.update(
+            pred_coords*self.scale_true_coords,
+            true_coords*self.scale_true_coords,
+            combined_mask_B.float()
+        )
+        cross_chain_rmsd_B = self.test_cross_chain_rmsd_B.last_value
         
         self.log(
             "test/monomer_rmsd(A)",
@@ -340,7 +356,7 @@ class DockingModel(pl.LightningModule):
             self.test_iRMSD_dockq.update(irmsd)
             self.test_LRMSD_dockq.update(lrmsd)
 
-            print(f"dimer_rmsd: {dimer_rmsd}, chainA_rmsd: {chainA_rmsd}, chainB_rmsd: {chainB_rmsd}, DockQ: {dockq}, fnat: {fnat}, irmsd: {irmsd}, lrmsd: {lrmsd}")
+            print(f"dimer_rmsd: {dimer_rmsd}, monomer_chainA_rmsd: {monomer_chainA_rmsd}, monomer_chainB_rmsd: {monomer_chainB_rmsd}, cross_chain_rmsd_A: {cross_chain_rmsd_A}, cross_chain_rmsd_B: {cross_chain_rmsd_B}, DockQ: {dockq}, fnat: {fnat}, irmsd: {irmsd}, lrmsd: {lrmsd}")
 
             self.log(
                 "test/dockq(0 to 1)",
@@ -374,6 +390,22 @@ class DockingModel(pl.LightningModule):
                 prog_bar=True,
                 sync_dist=True,
             )
+            self.log(
+                "test/cross_chain_rmsd_A",
+                self.test_cross_chain_rmsd_A,
+                on_step=False,
+                on_epoch=True,
+                prog_bar=True,
+                sync_dist=True,
+            )
+            self.log(
+                "test/cross_chain_rmsd_B",
+                self.test_cross_chain_rmsd_B,
+                on_step=False,
+                on_epoch=True,
+                prog_bar=True,
+                sync_dist=True,
+            )
 
         # Log count of failing dockq evaluations:
         self.test_failing_dockq.update(dockq_failed)
@@ -391,8 +423,10 @@ class DockingModel(pl.LightningModule):
             {
                 "protein_id": protein_id,
                 "dimer_rmsd": self._to_float(dimer_rmsd),
-                "chainA_rmsd": self._to_float(chainA_rmsd),
-                "chainB_rmsd": self._to_float(chainB_rmsd),
+                "monomer_chainA_rmsd": self._to_float(monomer_chainA_rmsd),
+                "monomer_chainB_rmsd": self._to_float(monomer_chainB_rmsd),
+                "cross_chain_rmsd_A": self._to_float(cross_chain_rmsd_A),
+                "cross_chain_rmsd_B": self._to_float(cross_chain_rmsd_B),
                 "dockq": self._to_float(dockq),
                 "fnat": self._to_float(fnat),
                 "irmsd": self._to_float(irmsd),
@@ -401,7 +435,7 @@ class DockingModel(pl.LightningModule):
             }
         )
 
-        return None
+        return None 
     
 
     @torch.no_grad()
@@ -475,8 +509,10 @@ class DockingModel(pl.LightningModule):
             fieldnames = [
                 "protein_id",
                 "dimer_rmsd",
-                "chainA_rmsd",
-                "chainB_rmsd",
+                "monomer_chainA_rmsd",
+                "monomer_chainB_rmsd",
+                "cross_chain_rmsd_A",
+                "cross_chain_rmsd_B",
                 "dockq",
                 "fnat",
                 "irmsd",

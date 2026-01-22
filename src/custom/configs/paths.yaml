@@ -1,10 +1,10 @@
 paths:
-  AFDDI_manifest: /projects/u5dp/Erik_data/AFDDI/processed/manifest.jsonl
-  AFDDI_dataset: /projects/u5dp/Erik_data/AFDDI/AFDB_DDI/dompdbs
-  AFDDI_output: /projects/u5dp/Erik_data/AFDDI/processed
-  AFDDI_split_json: /projects/u5dp/Erik_data/AFDDI/AFDB_DDI/mint_index.json
+  AFDDI_manifest: /projects/u5do/erik/data/AFDDI/processed/manifest.jsonl
+  AFDDI_dataset: /projects/public/u5dp/Erik_data/AFDDI/AFDB_DDI/dompdbs
+  AFDDI_output: /projects/u5do/erik/data/AFDDI/processed
+  AFDDI_split_json: /projects/public/u5dp/Erik_data/AFDDI/AFDB_DDI/mint_index.json
 
-  model_checkpoint_testing: /projects/u5dp/Erik/dock/training/jobs/001/artifacts/checkpoints/best_val_loss-151000.ckpt
+  model_checkpoint_testing: /projects/public/u5dp/Erik_data/AFDDI/checkpoints/002/best_val_loss-161000.ckpt
   model_checkpoint_training:
 
-  mint_checkpoint: mint # /projects/public/u5do/mint_ckpt/epoch=26-step=74000.ckpt # ckpt_path or keyword: esm2 / mint / null (no weights)
+  mint_checkpoint: /projects/public/u5do/mint_ckpt/epoch=26-step=74000.ckpt # ckpt_path or keyword: esm2 / mint / null (no weights)

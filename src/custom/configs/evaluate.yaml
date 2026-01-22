@@ -27,3 +27,7 @@ lightning_module:
     _target_: custom.utils.benchmarking.LRMSD_DockQMetric
   test_failing_dockq:
     _target_: custom.utils.benchmarking.FailingDockQMetric
+  test_cross_chain_rmsd_A:
+    _target_: custom.utils.benchmarking.CrossChainRMSD
+  test_cross_chain_rmsd_B:
+    _target_: custom.utils.benchmarking.CrossChainRMSD
