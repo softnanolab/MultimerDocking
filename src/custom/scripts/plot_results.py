@@ -54,8 +54,8 @@ def plot_metric_histograms(csv_path: str):
         print(f"{key} histogram saved.")
 
     print("Dimer RMSD (mean): ", np.mean(data_dict["dimer_rmsd"]))
-    print("Monomer Chain RMSD (mean): ", np.mean(data_dict["chainA_rmsd"] + data_dict["chainB_rmsd"]))
-    # print("Cross Chain RMSD (mean): ", np.nanmean(data_dict["cross_chain_rmsd_A"] + data_dict["cross_chain_rmsd_B"]))
+    print("Monomer Chain RMSD (mean): ", np.mean(data_dict["monomer_chainA_rmsd"] + data_dict["monomer_chainB_rmsd"]))
+    print("Cross Chain RMSD (mean): ", np.mean(data_dict["cross_chain_rmsd_A"] + data_dict["cross_chain_rmsd_B"]))
     print("DockQ (mean): ", np.mean(data_dict["dockq"]), f"({fraction_correct_dimers:.2f} correct, {fraction_incorrect_dimers:.2f} incorrect)")
     print("fnat (mean): ", np.mean(data_dict["fnat"]))
     print("iRMSD (mean): ", np.mean(data_dict["irmsd"]))

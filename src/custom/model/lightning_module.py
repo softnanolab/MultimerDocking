@@ -102,6 +102,8 @@ class DockingModel(pl.LightningModule):
         self.test_iRMSD_dockq = test_iRMSD_dockq # iRMSD_DockQMetric object from custom.utils.benchmarking
         self.test_LRMSD_dockq = test_LRMSD_dockq # LRMSD_DockQMetric object from custom.utils.benchmarking
         self.test_failing_dockq = test_failing_dockq # FailingDockQMetric object from custom.utils.benchmarking
+        self.test_cross_chain_rmsd_A = test_cross_chain_rmsd_A # CrossChainRMSDMetric object from custom.utils.benchmarking
+        self.test_cross_chain_rmsd_B = test_cross_chain_rmsd_B # CrossChainRMSDMetric object from custom.utils.benchmarking
         self.test_records = []
 
     def configure_optimizers(self):
