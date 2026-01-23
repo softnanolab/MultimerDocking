@@ -6,10 +6,14 @@ import math
 
 import torch
 from torch import nn
+import torch.nn.functional as F
 
 # SF imports:
 from simplefold.model.torch.pos_embed import FourierPositionEncoding, AbsolutePositionEncoding
 from simplefold.model.torch.layers import FinalLayer, ConditionEmbedder, TimestepEmbedder
+
+# Custom imports:
+from custom.model.layers import RigidMotionLayer
 
 
 #### - Start: Attention masks - ####
@@ -116,6 +120,7 @@ class Encoder(nn.Module):
             nn.Linear(self.d_a, self.E),
             nn.LayerNorm(self.E),
         )
+        self.pLM_cat_proj = nn.Linear(2*self.d_a, self.d_a)
 
     def forward(self,
                 atom_coords: torch.Tensor,
@@ -123,7 +128,7 @@ class Encoder(nn.Module):
                 adaLN_emb: torch.Tensor,
                 RoPE_pos: torch.Tensor,
                 atom_to_token: torch.Tensor,
-                ) -> dict:
+                pLM_emb: torch.Tensor) -> dict:
         """
         Note the encoder takes monomer features.
         Inputs:
@@ -133,6 +138,7 @@ class Encoder(nn.Module):
         - adaLN_emb: (B, d_a)
         - RoPE_pos: (B, N_atoms, axes)
         - atom_to_token: (B, N_atoms, N_r). 1 if atom belongs to residue, else 0.
+        - pLM_emb: (B, N_r, d_a)
 
         Returns:
         - dict: {"residue_latent": (B, N_r, d_a), 
@@ -188,6 +194,13 @@ class Encoder(nn.Module):
             atom_to_token.sum(dim=1, keepdim=True) + 1e-6
         )
         residue_latent = torch.bmm(atom_to_token_mean.transpose(1, 2), atom_latent) # (B, N_r, d_a)
+        N_r = pLM_emb.shape[1]
+        d_a = pLM_emb.shape[2]
+        assert residue_latent.shape[1] == N_r and residue_latent.shape[2] == d_a
+        
+        # Combine with pLM embeddings:
+        residue_latent = torch.cat([residue_latent, pLM_emb], dim=-1) # (B, N_r, 2*d_a)
+        residue_latent = self.pLM_cat_proj(residue_latent) # (B, N_r, d_a)
 
         return {"residue_latent": residue_latent, "atom_latent": atom_latent}
 
@@ -275,7 +288,40 @@ class Decoder(nn.Module):
         velocity_field = self.final_layer(atom_representation, adaLN_emb) # (B, N_atoms, 3)
 
         return {"velocity_field": velocity_field}
+
+
+########################################################
+####            Rigid Motion Head                  #####
+########################################################
+class RigidMotionHead(nn.Module):
+    def __init__(self, d_a, c_dim):
+        super().__init__()
+        self.d_a = d_a
+        self.c_dim = c_dim
+        self.rigid_motion_layer = RigidMotionLayer(d_a, c_dim)
+
+        self.scoring_layer = nn.Linear(d_a, 1, bias=False)
+
+    def forward(self, x, c):
+        """
+        Takes in the main trunks output latent representation for a single monomer and outputs the rigid motion translation and angular velocity vectors.
+        Inputs: (B, L_r/2, d_a)
+        Outputs: (B, 3), (B, 3) translation and angular velocity vectors
+        """
+        B, M, d_a = x.shape # with M = L_r/2
+        assert d_a == self.d_a, "Shape mismatch"
+
+        scores = self.scoring_layer(x) # (B, M, 1)
+        scores = F.softmax(scores, dim=1) # (B, M, 1), normalize over residues
+
+        x = x * scores # (B, M, d_a)
+        x = x.sum(dim=1) # (B, d_a)
+
+        translation, angular_velocity = self.rigid_motion_layer(x, c) # (B, 3), (B, 3)
+        assert translation.shape == (B, 3) and angular_velocity.shape == (B, 3), "Shape mismatch"
         
+        return translation, angular_velocity
+
 
 ########################################################
 ####            Full model architecture            #####
@@ -301,14 +347,12 @@ class DockingDiT(nn.Module):
         self.d_a = d_a
         self.use_length_condition = use_length_condition
 
-        # pLM:
-        self.pLM_combine = nn.Parameter(torch.zeros(pLM_num_layers)) # for multiple layers of pLM embeddings
+        self.pLM_combine = nn.Parameter(torch.zeros(pLM_num_layers))
         self.pLM_proj = ConditionEmbedder(
             input_dim=self.d_e,
             hidden_size=self.d_a,
             dropout_prob=pLM_dropout_prob,
         )
-        self.pLM_cat_proj = nn.Linear(2*self.d_a, self.d_a) # For mint
 
         self.time_embedder = TimestepEmbedder(
             hidden_size=self.d_a,
@@ -322,6 +366,12 @@ class DockingDiT(nn.Module):
         # Learnable SOS and EOS tokens:
         self.seq_start_token = nn.Parameter(torch.randn(1, 1, self.d_a) * 0.02) # (1, 1, d_a)
         self.seq_end_token = nn.Parameter(torch.randn(1, 1,self.d_a) * 0.02) # (1, 1, d_a)
+        
+        self.rigid_motion_head = RigidMotionHead(d_a, d_a)
+
+        # Learnable mixing weights for velocity field combination
+        self.velocity_mix_weight_all_atom = nn.Parameter(torch.tensor(1.0))
+        self.velocity_mix_weight_rigid = nn.Parameter(torch.tensor(1.0))
 
 
     def forward(self,
@@ -338,11 +388,11 @@ class DockingDiT(nn.Module):
         - feats: dict of feature dicts for each chain:
             - chain_feature_dict[chain_id_1]:
                 - noised_coords: tensor (B, N_atoms, 3). Noised coordinates for the current time step t.
+                - pLM_emb: tensor (B, N_r, pLM_num_layers, d_e). Embedding of ESM-2 from input + pLM_num_layers layers.
                 - sequence_length: tensor (B,). Length of the sequence per batch element.
                 - res_id: tensor (B, N_atoms, 1). Per atom residue ID.
                 - ref_pos: tensor (B, N_atoms, 3). Reference conformer coordinates.
                 - atom_to_token: tensor (B, N_atoms, N_r). 1 if atom belongs to residue, else 0.
-                - pLM_emb: (1, N_r, len(layers), d_e)
                 # TODO: Update the input feature description.
             
             - chain_feature_dict[chain_id_2]:
@@ -363,6 +413,12 @@ class DockingDiT(nn.Module):
         chains_RoPE_pos = []
         chains_adaLN_emb = []
         for i, (chain_id, chain_feats) in enumerate(feats.items()):
+
+            # Prepare pLM embedding (for sampling it would be more efficient to compute it once,
+            # and pass it to the model as a constant):
+            chain_pLM_emb = chain_feats["pLM_emb"] # (B, N_r, pLM_num_layers, d_e)
+            chain_pLM_emb = (self.pLM_combine.softmax(0).unsqueeze(0) @ chain_pLM_emb).squeeze(2) # (B, N_r, d_e)
+            chain_pLM_emb = self.pLM_proj(chain_pLM_emb, self.training, None) # (B, N_r, d_a)
 
             # adaLN embedding:
             chain_adaLN_emb = adaLN_emb
@@ -386,6 +442,7 @@ class DockingDiT(nn.Module):
                 adaLN_emb=chain_adaLN_emb, # (B, d_a)
                 RoPE_pos=chain_RoPE_pos, # (B, N_atoms, 4)
                 atom_to_token=chain_feats["atom_to_token"], # (B, N_atoms, N_r),
+                pLM_emb=chain_pLM_emb, # (B, N_r, d_a)
             ) # {"residue_latent": (B, N_r, d_a), "atom_latent": (B, N_atoms, d_a)}
 
             chain_residue_latents.append(chain_encoding["residue_latent"])
@@ -403,15 +460,7 @@ class DockingDiT(nn.Module):
         N_r_A = chain_A.shape[1]
         N_r_B = chain_B.shape[1]
 
-        dimer_latent = torch.cat([SOS, chain_A, EOS, SOS, chain_B, EOS], dim=-2) # (B, N_r_A + N_r_B + 4, d_a) = (B, L_r, d_a)
-
-        # Combine with mint embeddings:
-        dimer_pLM_emb = torch.cat([chain_feats["pLM_emb"] for chain_feats in feats.values()], dim=1) # (B, N_r_A + N_r_B + 4, pLM_num_layers, d_e) = (B, L_r, num_layers, d_e)
-        dimer_pLM_emb = (self.pLM_combine.softmax(0).unsqueeze(0) @ dimer_pLM_emb).squeeze(2) # (B, L_r, d_e)
-        dimer_pLM_emb = self.pLM_proj(dimer_pLM_emb, self.training, None) # (B, L_r, d_e) -> (B, L_r, d_a)
-        dimer_latent = torch.cat([dimer_latent, dimer_pLM_emb], dim=-1) # (B, L_r, 2*d_a), with each input being (B, L_r, d_a)
-        dimer_latent = self.pLM_cat_proj(dimer_latent) # (B, L_r, d_a)
-
+        dimer_latent = torch.cat([SOS, chain_A, EOS, SOS, chain_B, EOS], dim=-2) # (B, N_r_A + N_r_B + 4, d_a)
 
         adaLN_emb_dimer = adaLN_emb
         seq_length = dimer_latent.shape[-2]
@@ -431,6 +480,20 @@ class DockingDiT(nn.Module):
         ########### End: Main trunk ###########
 
 
+        ########### Start: Rigid motion layer ###########
+        chain_A = dimer_latent[:, 0:N_r_A+2, :]
+        chain_B = dimer_latent[:, N_r_A+2:, :]
+        chains = [chain_A, chain_B]
+        assert chain_A.shape[1] == N_r_A+2 and chain_B.shape[1] == N_r_B+2, "Chain length mismatch in Rigid motion head"
+        for i, (chain_id, chain_feats) in enumerate(feats.items()):
+            translation, angular_velocity = self.rigid_motion_head(chains[i], chains_adaLN_emb[i]) # (B, 3), (B, 3)
+            x_t = chain_feats["noised_coords"] # (B, N_atoms, 3)
+            com = x_t.sum(dim=1, keepdim=True) / x_t.shape[1] # (B, 1, 3), center of mass
+
+            chain_feats["rigid_motion_velocity"] = translation.unsqueeze(1) + torch.cross(angular_velocity.unsqueeze(1), x_t - com, dim=-1)
+        ########### End: Rigid motion layer ###########
+
+
         ########### Start: Decoding ###########
         chain_A = dimer_latent[:, 1:N_r_A+1, :]
         chain_B = dimer_latent[:, N_r_A+3:-1, :]
@@ -444,8 +507,14 @@ class DockingDiT(nn.Module):
                 RoPE_pos=chains_RoPE_pos[i],
                 atom_to_token=chain_feats["atom_to_token"],
             ) # {"velocity_field": (B, N_atoms, 3)}
-            chain_feats["velocity_field"] = decoder_out["velocity_field"]
+            chain_feats["velocity_all_atom"] = decoder_out["velocity_field"]
         ########### End: Decoding ###########
+
+
+        # Construct final velocity field per chain:
+        for i, (chain_id, chain_feats) in enumerate(feats.items()):
+            chain_feats["velocity_field"] = self.velocity_mix_weight_all_atom * chain_feats["velocity_all_atom"] + self.velocity_mix_weight_rigid * chain_feats["rigid_motion_velocity"]
+
 
         return feats
 
@@ -456,5 +525,3 @@ class DockingDiT(nn.Module):
 
 
         
-
-
