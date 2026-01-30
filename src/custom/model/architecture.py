@@ -120,15 +120,13 @@ class Encoder(nn.Module):
             nn.Linear(self.d_a, self.E),
             nn.LayerNorm(self.E),
         )
-        self.pLM_cat_proj = nn.Linear(2*self.d_a, self.d_a)
 
     def forward(self,
                 atom_coords: torch.Tensor,
                 chain_feats: dict,
                 adaLN_emb: torch.Tensor,
                 RoPE_pos: torch.Tensor,
-                atom_to_token: torch.Tensor,
-                pLM_emb: torch.Tensor) -> dict:
+                atom_to_token: torch.Tensor) -> dict:
         """
         Note the encoder takes monomer features.
         Inputs:
@@ -138,7 +136,6 @@ class Encoder(nn.Module):
         - adaLN_emb: (B, d_a)
         - RoPE_pos: (B, N_atoms, axes)
         - atom_to_token: (B, N_atoms, N_r). 1 if atom belongs to residue, else 0.
-        - pLM_emb: (B, N_r, d_a)
 
         Returns:
         - dict: {"residue_latent": (B, N_r, d_a), 
@@ -194,13 +191,6 @@ class Encoder(nn.Module):
             atom_to_token.sum(dim=1, keepdim=True) + 1e-6
         )
         residue_latent = torch.bmm(atom_to_token_mean.transpose(1, 2), atom_latent) # (B, N_r, d_a)
-        N_r = pLM_emb.shape[1]
-        d_a = pLM_emb.shape[2]
-        assert residue_latent.shape[1] == N_r and residue_latent.shape[2] == d_a
-        
-        # Combine with pLM embeddings:
-        residue_latent = torch.cat([residue_latent, pLM_emb], dim=-1) # (B, N_r, 2*d_a)
-        residue_latent = self.pLM_cat_proj(residue_latent) # (B, N_r, d_a)
 
         return {"residue_latent": residue_latent, "atom_latent": atom_latent}
 
@@ -347,12 +337,14 @@ class DockingDiT(nn.Module):
         self.d_a = d_a
         self.use_length_condition = use_length_condition
 
-        self.pLM_combine = nn.Parameter(torch.zeros(pLM_num_layers))
+        # pLM:
+        self.pLM_combine = nn.Parameter(torch.zeros(pLM_num_layers)) # for multiple layers of pLM embeddings
         self.pLM_proj = ConditionEmbedder(
             input_dim=self.d_e,
             hidden_size=self.d_a,
             dropout_prob=pLM_dropout_prob,
         )
+        self.pLM_cat_proj = nn.Linear(2*self.d_a, self.d_a) # For mint
 
         self.time_embedder = TimestepEmbedder(
             hidden_size=self.d_a,
@@ -388,11 +380,11 @@ class DockingDiT(nn.Module):
         - feats: dict of feature dicts for each chain:
             - chain_feature_dict[chain_id_1]:
                 - noised_coords: tensor (B, N_atoms, 3). Noised coordinates for the current time step t.
-                - pLM_emb: tensor (B, N_r, pLM_num_layers, d_e). Embedding of ESM-2 from input + pLM_num_layers layers.
                 - sequence_length: tensor (B,). Length of the sequence per batch element.
                 - res_id: tensor (B, N_atoms, 1). Per atom residue ID.
                 - ref_pos: tensor (B, N_atoms, 3). Reference conformer coordinates.
                 - atom_to_token: tensor (B, N_atoms, N_r). 1 if atom belongs to residue, else 0.
+                - pLM_emb: (1, N_r, len(layers), d_e)
                 # TODO: Update the input feature description.
             
             - chain_feature_dict[chain_id_2]:
@@ -413,12 +405,6 @@ class DockingDiT(nn.Module):
         chains_RoPE_pos = []
         chains_adaLN_emb = []
         for i, (chain_id, chain_feats) in enumerate(feats.items()):
-
-            # Prepare pLM embedding (for sampling it would be more efficient to compute it once,
-            # and pass it to the model as a constant):
-            chain_pLM_emb = chain_feats["pLM_emb"] # (B, N_r, pLM_num_layers, d_e)
-            chain_pLM_emb = (self.pLM_combine.softmax(0).unsqueeze(0) @ chain_pLM_emb).squeeze(2) # (B, N_r, d_e)
-            chain_pLM_emb = self.pLM_proj(chain_pLM_emb, self.training, None) # (B, N_r, d_a)
 
             # adaLN embedding:
             chain_adaLN_emb = adaLN_emb
@@ -441,8 +427,7 @@ class DockingDiT(nn.Module):
                 chain_feats=chain_feats,
                 adaLN_emb=chain_adaLN_emb, # (B, d_a)
                 RoPE_pos=chain_RoPE_pos, # (B, N_atoms, 4)
-                atom_to_token=chain_feats["atom_to_token"], # (B, N_atoms, N_r),
-                pLM_emb=chain_pLM_emb, # (B, N_r, d_a)
+                atom_to_token=chain_feats["atom_to_token"], # (B, N_atoms, N_r)
             ) # {"residue_latent": (B, N_r, d_a), "atom_latent": (B, N_atoms, d_a)}
 
             chain_residue_latents.append(chain_encoding["residue_latent"])
@@ -460,7 +445,16 @@ class DockingDiT(nn.Module):
         N_r_A = chain_A.shape[1]
         N_r_B = chain_B.shape[1]
 
-        dimer_latent = torch.cat([SOS, chain_A, EOS, SOS, chain_B, EOS], dim=-2) # (B, N_r_A + N_r_B + 4, d_a)
+        ## combine with pLM:
+        dimer_latent = torch.cat([SOS, chain_A, EOS, SOS, chain_B, EOS], dim=-2) # (B, N_r_A + N_r_B + 4, d_a) = (B, L_r, d_a)
+
+        # Combine with mint embeddings:
+        dimer_pLM_emb = torch.cat([chain_feats["pLM_emb"] for chain_feats in feats.values()], dim=1) # (B, N_r_A + N_r_B + 4, pLM_num_layers, d_e) = (B, L_r, num_layers, d_e)
+        dimer_pLM_emb = (self.pLM_combine.softmax(0).unsqueeze(0) @ dimer_pLM_emb).squeeze(2) # (B, L_r, d_e)
+        dimer_pLM_emb = self.pLM_proj(dimer_pLM_emb, self.training, None) # (B, L_r, d_e) -> (B, L_r, d_a)
+        dimer_latent = torch.cat([dimer_latent, dimer_pLM_emb], dim=-1) # (B, L_r, 2*d_a), with each input being (B, L_r, d_a)
+        dimer_latent = self.pLM_cat_proj(dimer_latent) # (B, L_r, d_a)
+        ## end: combine with pLM
 
         adaLN_emb_dimer = adaLN_emb
         seq_length = dimer_latent.shape[-2]

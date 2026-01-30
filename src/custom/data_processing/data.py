@@ -254,4 +254,3 @@ def extract_full_dimer_coords(dimer_feat_dict, device: torch.device):
     atom_mask = torch.ones(B, N_atoms, device=device) # (B, N_atoms). Augmentation function requires an atom mask, which is currently trivially 1 for all atoms.
     full_dimer_coords = center_random_rotation(full_dimer_coords, atom_mask=atom_mask, rotation=True, centering=True, return_second_coords=False, second_coords=None)
     return full_dimer_coords
-
