@@ -48,8 +48,8 @@ def save_to_trajectory(name, dimer_feat_dict, i, root_dir, backbone_only, scale_
 def calculate_interpolant(dimer_feat_dict, device, interpolant, x_0, x_1, t):
     t = t.to(device)
 
-    z = torch.randn_like(x_1) # (B, N_atoms_A + N_atoms_B, 3)
-    # z = torch.zeros_like(x_1) # (B, N_atoms_A + N_atoms_B, 3) # try without noise
+    # z = torch.randn_like(x_1) # (B, N_atoms_A + N_atoms_B, 3)
+    z = torch.zeros_like(x_1) # (B, N_atoms_A + N_atoms_B, 3) # try without noise
     x_t = interpolant.compute_x_t(t.view(-1, 1, 1), x_0, x_1, z) # (B, N_atoms_A + N_atoms_B, 3)
     dimer_feat_dict = split_chains(dimer_feat_dict, "interpolated_coords", x_t)
     return dimer_feat_dict
